@@ -1,0 +1,1 @@
+- [No lambda assignments](feedback_no_lambda_assign.md) — Use def instead of assigning lambdas to variables
