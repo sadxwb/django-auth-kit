@@ -29,6 +29,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+channels = [
+    "channels>=4.0.0",
+]
 social = [
     "django-allauth>=64.0.0",
 ]

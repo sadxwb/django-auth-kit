@@ -44,13 +44,6 @@ Every setting has a sensible default. You only need to override what you want to
 
 OTP emails are sent using Django's built-in email backend. Configure `EMAIL_BACKEND`, `EMAIL_HOST`, etc. in your Django settings as usual.
 
-## Profile Settings
-
-| Key | Type | Default | Description |
-|-----|------|---------|-------------|
-| `ME_QUERY_FIELDS` | `list[str]` | `["first_name", "last_name", "avatar", "display_name"]` | Fields returned by the `me` query |
-| `UPDATE_PROFILE_FIELDS` | `list[str]` | `["first_name", "last_name", "avatar", "display_name"]` | Fields allowed in `updateProfile` mutation |
-
 ## Social Login Settings
 
 | Key | Type | Default | Description |

@@ -4,13 +4,12 @@ A batteries-included Django authentication package with Strawberry GraphQL, JWT 
 
 ## Features
 
-- **Extended User model** with avatar and display name
-- **Email & Mobile models** with `is_verified` / `is_primary` support
+- **UserEmail & UserMobile models** with `is_verified` / `is_primary` support (bring your own User model)
 - **OTP verification** via email (Django email backend) and SMS (pluggable backend)
 - **JWT authentication** with access + refresh token pairs
 - **Strawberry GraphQL API** for all auth operations
 - **Social login** via django-allauth (Google, Facebook, Apple, Microsoft, Azure)
-- **WSGI & ASGI** support out of the box
+- **WSGI & ASGI** support, including Django Channels consumers
 - **Fully configurable** via a single `AUTH_KIT` dict in Django settings
 
 ## Installation
@@ -20,6 +19,9 @@ pip install django-auth-kit
 
 # With social login support
 pip install django-auth-kit[social]
+
+# With Django Channels support
+pip install django-auth-kit[channels]
 ```
 
 ## Quick Start
@@ -33,13 +35,9 @@ INSTALLED_APPS = [
 ]
 ```
 
-### 2. Set `AUTH_USER_MODEL`
+### 2. Add middleware and include URLs
 
-```python
-AUTH_USER_MODEL = "django_auth_kit.User"
-```
-
-### 3. Add middleware
+**Option A: WSGI (or ASGI without Channels)**
 
 ```python
 MIDDLEWARE = [
@@ -48,20 +46,13 @@ MIDDLEWARE = [
 ]
 ```
 
-### 4. Include URLs
-
 ```python
-# WSGI
-from django.urls import include, path
-
+# urls.py — WSGI
 urlpatterns = [
     path("auth/", include("django_auth_kit.urls")),
 ]
-```
 
-```python
-# ASGI
-from django.urls import include, path
+# urls.py — ASGI (AsyncGraphQLView, no Channels)
 from django_auth_kit.urls import async_urlpatterns
 
 urlpatterns = [
@@ -69,13 +60,34 @@ urlpatterns = [
 ]
 ```
 
-### 5. Run migrations
+**Option B: Django Channels (recommended for ASGI)**
+
+No Django middleware needed — authentication happens at the consumer level.
+
+```python
+# asgi.py
+from channels.routing import ProtocolTypeRouter, URLRouter
+from django.urls import re_path
+from django_auth_kit.channels import GraphQLHTTPConsumer
+from myproject.schema import schema
+
+application = ProtocolTypeRouter({
+    "http": URLRouter([
+        re_path(r"^graphql", GraphQLHTTPConsumer.as_asgi(schema=schema)),
+        re_path(r"^", django_asgi_application),
+    ]),
+})
+```
+
+See [docs/channels.md](docs/channels.md) for the full Channels setup guide.
+
+### 3. Run migrations
 
 ```bash
 python manage.py migrate
 ```
 
-### 6. Configure (optional)
+### 4. Configure (optional)
 
 ```python
 from datetime import timedelta
@@ -100,10 +112,6 @@ AUTH_KIT = {
     # Email
     "OTP_EMAIL_SUBJECT": "Your verification code",
     "OTP_EMAIL_FROM": "noreply@example.com",
-
-    # Profile
-    "ME_QUERY_FIELDS": ["first_name", "last_name", "avatar", "display_name"],
-    "UPDATE_PROFILE_FIELDS": ["first_name", "last_name", "avatar", "display_name"],
 
     # Social (requires django-auth-kit[social])
     "SOCIAL_PROVIDERS": [],  # e.g. ["google", "facebook", "apple"]
@@ -131,7 +139,7 @@ The GraphQL endpoint is available at `/auth/graphql/` (or wherever you mount the
 | `refreshToken` | No | Get a new token pair from a refresh token |
 | `changePassword` | Yes | Change password (requires current password) |
 | `forgotPassword` | No | Reset password with verified OTP |
-| `updateProfile` | Yes | Update profile fields and avatar |
+| `updateProfile` | Yes | Update first/last name |
 | `socialLogin` | No | Authenticate via a social provider |
 
 ### Auth Flows
@@ -193,10 +201,8 @@ AUTH_KIT = {
 ## Development
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -e ".[dev]"
-pytest
+uv sync
+uv run pytest
 ```
 
 ## License

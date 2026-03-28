@@ -4,13 +4,7 @@ import strawberry
 from strawberry.types import Info
 
 from django_auth_kit.schema.types import UserEmailType, UserMobileType, UserType
-
-
-def _get_authenticated_user(info: Info):
-    user = info.context.request.user
-    if not user.is_authenticated:
-        raise PermissionError("Authentication required.")
-    return user
+from django_auth_kit.schema.utils import get_authenticated_user
 
 
 def _user_to_type(user) -> UserType:
@@ -47,5 +41,5 @@ def _user_to_type(user) -> UserType:
 class Query:
     @strawberry.field
     def me(self, info: Info) -> UserType:
-        user = _get_authenticated_user(info)
+        user = get_authenticated_user(info)
         return _user_to_type(user)

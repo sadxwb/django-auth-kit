@@ -6,6 +6,7 @@ from strawberry.types import Info
 from django_auth_kit.schema.inputs import UpdateProfileInput
 from django_auth_kit.schema.queries import _user_to_type
 from django_auth_kit.schema.types import AuthResponse
+from django_auth_kit.schema.utils import get_current_user
 
 
 @strawberry.type
@@ -13,7 +14,7 @@ class ProfileMutation:
     @strawberry.mutation
     def update_profile(self, info: Info, input: UpdateProfileInput) -> AuthResponse:
         """Update the authenticated user's profile."""
-        user = info.context.request.user
+        user = get_current_user(info)
         if not user.is_authenticated:
             return AuthResponse(success=False, message="Authentication required.")
 

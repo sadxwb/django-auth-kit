@@ -19,8 +19,6 @@ query {
     username
     firstName
     lastName
-    displayName
-    avatar
     emails {
       id
       email
@@ -124,7 +122,6 @@ mutation {
     user {
       id
       username
-      displayName
     }
   }
 }
@@ -190,7 +187,7 @@ mutation {
 
 ### `updateProfile`
 
-Update the authenticated user's profile. Supports file upload for avatar.
+Update the authenticated user's profile.
 
 **Auth required:** Yes
 
@@ -199,21 +196,17 @@ mutation {
   updateProfile(input: {
     firstName: "Jane"
     lastName: "Doe"
-    displayName: "Jane D."
   }) {
     success
     message
     user {
       id
-      displayName
       firstName
       lastName
     }
   }
 }
 ```
-
-For avatar uploads, use a multipart form request per the [GraphQL Multipart Request Spec](https://github.com/jaydenseric/graphql-multipart-request-spec).
 
 ### `socialLogin`
 

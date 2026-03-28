@@ -3,21 +3,32 @@
 ## Development Setup
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -e ".[dev]"
+uv sync
 
-# With social login support
-pip install -e ".[dev,social]"
+# With all optional dependencies
+uv sync --all-extras
 ```
 
 ## Testing
 
 ```bash
-pytest                  # Run all tests
-pytest tests/ -v        # Verbose
-pytest tests/ -k jwt    # Filter by keyword
-pytest tests/test_jwt.py  # Single file
+uv run pytest                  # Run all tests
+uv run pytest tests/ -v        # Verbose
+uv run pytest tests/ -k jwt    # Filter by keyword
+uv run pytest tests/test_jwt.py  # Single file
+```
+
+### Example project
+
+There is an example Django project in `example/` for manual testing:
+
+```bash
+cd example
+uv run python manage.py migrate
+uv run python manage.py runserver
+
+# Run all endpoint tests (registration, login, password, etc.)
+uv run python manage.py test_endpoints
 ```
 
 Tests use an in-memory SQLite database and `locmem` cache. Django is configured entirely in `tests/conftest.py` via `pytest_configure()` — there is no standalone Django settings module.
@@ -27,16 +38,8 @@ Tests use an in-memory SQLite database and `locmem` cache. Django is configured 
 There is no standalone Django settings module, so use this command after model changes:
 
 ```bash
-python -c "
-import django; from django.conf import settings
-settings.configure(
-    DATABASES={'default': {'ENGINE': 'django.db.backends.sqlite3', 'NAME': ':memory:'}},
-    INSTALLED_APPS=['django.contrib.contenttypes', 'django.contrib.auth', 'django_auth_kit'],
-    AUTH_USER_MODEL='django_auth_kit.User', DEFAULT_AUTO_FIELD='django.db.models.BigAutoField', SECRET_KEY='x')
-django.setup()
-from django.core.management import call_command
-call_command('makemigrations', 'django_auth_kit')
-"
+cd example
+uv run python manage.py makemigrations django_auth_kit
 ```
 
 ## Common Tasks

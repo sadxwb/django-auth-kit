@@ -9,6 +9,7 @@ from django_auth_kit.models import UserEmail, UserMobile
 from django_auth_kit.otp.service import OTPService
 from django_auth_kit.schema.inputs import ChangePasswordInput, ForgotPasswordInput
 from django_auth_kit.schema.types import OperationResult
+from django_auth_kit.schema.utils import get_current_user
 
 _EMAIL_RE = re.compile(r"^[^@]+@[^@]+\.[^@]+$")
 
@@ -24,7 +25,7 @@ class PasswordMutation:
         self, info: Info, input: ChangePasswordInput
     ) -> OperationResult:
         """Change password for the authenticated user."""
-        user = info.context.request.user
+        user = get_current_user(info)
         if not user.is_authenticated:
             return OperationResult(success=False, message="Authentication required.")
 

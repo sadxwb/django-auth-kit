@@ -7,6 +7,7 @@ Django Auth Kit — a Django authentication package providing a complete auth sy
 - [Architecture & Design Decisions](docs/architecture.md)
 - [Configuration Reference](docs/configuration.md)
 - [GraphQL API Reference](docs/graphql-api.md)
+- [Django Channels Integration](docs/channels.md)
 - [Social Login Setup](docs/social-login.md)
 - [SMS Backends](docs/sms-backends.md)
 - [Contributing, Commands & Common Tasks](docs/contributing.md)
