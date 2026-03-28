@@ -4,7 +4,6 @@ import re
 
 import strawberry
 from django.contrib.auth import get_user_model
-from strawberry.types import Info
 
 from django_auth_kit.jwt.service import JWTService
 from django_auth_kit.models import UserEmail, UserMobile
@@ -178,13 +177,20 @@ class AuthMutation:
     @strawberry.mutation
     def refresh_token(self, input: RefreshTokenInput) -> AuthResponse:
         """Get a new token pair using a refresh token."""
+
+        def _load_user(pk):
+            return User.objects.filter(pk=pk, is_active=True).first()
+
         try:
             tokens = JWTService.refresh_access_token(
                 input.refresh_token,
-                user_loader=lambda pk: User.objects.filter(pk=pk, is_active=True).first(),
+                user_loader=_load_user,
             )
         except Exception:
-            return AuthResponse(success=False, message="Invalid or expired refresh token.")
+            return AuthResponse(
+                success=False,
+                message="Invalid or expired refresh token.",
+            )
 
         return AuthResponse(
             success=True,

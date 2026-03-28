@@ -72,23 +72,6 @@ def SMS_BACKEND():
     )
 
 
-# --- Profile fields ---
-
-
-def ME_QUERY_FIELDS():
-    return get_setting(
-        "ME_QUERY_FIELDS",
-        ["first_name", "last_name", "avatar", "display_name"],
-    )
-
-
-def UPDATE_PROFILE_FIELDS():
-    return get_setting(
-        "UPDATE_PROFILE_FIELDS",
-        ["first_name", "last_name", "avatar", "display_name"],
-    )
-
-
 # --- Social providers (list of enabled provider keys) ---
 
 

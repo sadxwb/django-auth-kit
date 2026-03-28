@@ -32,17 +32,12 @@ def _user_to_type(user) -> UserType:
         )
         for m in user.mobiles.all()
     ]
-    avatar_url = ""
-    if user.avatar:
-        avatar_url = user.avatar.url if hasattr(user.avatar, "url") else str(user.avatar)
 
     return UserType(
         id=strawberry.ID(str(user.pk)),
         username=user.username,
         first_name=user.first_name,
         last_name=user.last_name,
-        display_name=user.computed_display_name,
-        avatar=avatar_url,
         emails=emails,
         mobiles=mobiles,
     )

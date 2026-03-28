@@ -21,9 +21,7 @@ class ConsoleSmsBackend(BaseSmsBackend):
         for message in messages:
             for recipient in message.to:
                 self.stream.write(
-                    f"--- SMS to {recipient} ---\n"
-                    f"{message.body}\n"
-                    f"--- End SMS ---\n\n"
+                    f"--- SMS to {recipient} ---\n{message.body}\n--- End SMS ---\n\n"
                 )
                 count += 1
         self.stream.flush()

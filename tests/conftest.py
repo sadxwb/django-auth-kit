@@ -15,7 +15,6 @@ def pytest_configure():
             "django.contrib.auth",
             "django_auth_kit",
         ],
-        AUTH_USER_MODEL="django_auth_kit.User",
         AUTH_KIT={
             "JWT_SECRET_KEY": "test-secret-key-for-testing-only",
             "OTP_TIMEOUT": 300,

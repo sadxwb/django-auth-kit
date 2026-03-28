@@ -37,8 +37,6 @@ class UserType:
     username: str
     first_name: str
     last_name: str
-    display_name: str
-    avatar: str
     emails: list[UserEmailType]
     mobiles: list[UserMobileType]
 

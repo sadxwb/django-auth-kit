@@ -1,9 +1,6 @@
 from __future__ import annotations
 
-from typing import Optional
-
 import strawberry
-from strawberry.file_uploads import Upload
 
 
 @strawberry.input
@@ -27,9 +24,9 @@ class RegisterInput:
     code: str  # verified OTP code
     password1: str
     password2: str
-    username: Optional[str] = None
-    first_name: Optional[str] = None
-    last_name: Optional[str] = None
+    username: str | None = None
+    first_name: str | None = None
+    last_name: str | None = None
 
 
 @strawberry.input
@@ -60,10 +57,8 @@ class ForgotPasswordInput:
 
 @strawberry.input
 class UpdateProfileInput:
-    first_name: Optional[str] = None
-    last_name: Optional[str] = None
-    display_name: Optional[str] = None
-    avatar: Optional[Upload] = None
+    first_name: str | None = None
+    last_name: str | None = None
 
 
 @strawberry.input

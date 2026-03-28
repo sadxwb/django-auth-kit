@@ -8,28 +8,23 @@ version = "0.1.0"
 description = "A Django authentication kit with GraphQL (Strawberry), JWT, OTP, and social login support."
 readme = "README.md"
 license = {text = "MIT"}
-requires-python = ">=3.10"
+requires-python = ">=3.14"
 authors = [
     {name = "Django Auth Kit Contributors"},
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Framework :: Django",
-    "Framework :: Django :: 4.2",
-    "Framework :: Django :: 5.0",
-    "Framework :: Django :: 5.1",
+    "Framework :: Django :: 5.2",
+    "Framework :: Django :: 6.0",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
-    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
 ]
 dependencies = [
-    "django>=4.2",
-    "strawberry-graphql>=0.220.0",
-    "strawberry-graphql-django>=0.40.0",
+    "django>=5.2",
+    "strawberry-graphql-django>=0.80.0",
     "PyJWT>=2.8.0",
 ]
 
@@ -41,6 +36,8 @@ dev = [
     "pytest",
     "pytest-django",
     "pytest-cov",
+    "ruff",
+    "pre-commit",
 ]
 
 [tool.setuptools.packages.find]
@@ -48,3 +45,22 @@ include = ["django_auth_kit*"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
+
+[tool.ruff]
+target-version = "py314"
+line-length = 88
+extend-exclude = ["migrations"]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "B",    # flake8-bugbear
+    "UP",   # pyupgrade
+    "SIM",  # flake8-simplify
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["django_auth_kit"]

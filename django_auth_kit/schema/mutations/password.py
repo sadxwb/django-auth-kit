@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+
 import strawberry
 from strawberry.types import Info
 
@@ -7,8 +9,6 @@ from django_auth_kit.models import UserEmail, UserMobile
 from django_auth_kit.otp.service import OTPService
 from django_auth_kit.schema.inputs import ChangePasswordInput, ForgotPasswordInput
 from django_auth_kit.schema.types import OperationResult
-
-import re
 
 _EMAIL_RE = re.compile(r"^[^@]+@[^@]+\.[^@]+$")
 
@@ -20,14 +20,18 @@ def _is_email(identifier: str) -> bool:
 @strawberry.type
 class PasswordMutation:
     @strawberry.mutation
-    def change_password(self, info: Info, input: ChangePasswordInput) -> OperationResult:
+    def change_password(
+        self, info: Info, input: ChangePasswordInput
+    ) -> OperationResult:
         """Change password for the authenticated user."""
         user = info.context.request.user
         if not user.is_authenticated:
             return OperationResult(success=False, message="Authentication required.")
 
         if not user.check_password(input.old_password):
-            return OperationResult(success=False, message="Current password is incorrect.")
+            return OperationResult(
+                success=False, message="Current password is incorrect."
+            )
 
         if input.new_password1 != input.new_password2:
             return OperationResult(success=False, message="New passwords do not match.")
@@ -85,7 +89,10 @@ class PasswordMutation:
         if user is None:
             # Silently ignore as per spec (don't reveal if account exists)
             OTPService.clear_verified(input.identifier, "forgot_password")
-            return OperationResult(success=True, message="If the account exists, the password has been reset.")
+            return OperationResult(
+                success=True,
+                message="If the account exists, the password has been reset.",
+            )
 
         user.set_password(input.new_password1)
         user.save(update_fields=["password"])

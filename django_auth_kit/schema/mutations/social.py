@@ -67,21 +67,17 @@ def _do_social_login(info: Info, input: SocialLoginInput) -> AuthResponse:
             message=f"No SocialApp configured for '{input.provider}'.",
         )
 
-    # Complete the social login flow
-    from allauth.socialaccount.helpers import complete_social_login
-    from allauth.socialaccount.models import SocialLogin
-
-    # Fetch user info from provider using the access token
+    # Fetch user info from provider and build a SocialLogin
     provider = provider_cls
-    token = SocialToken(app=social_app, token=input.access_token)
-
-    # Build a SocialLogin from token
-    login = provider.sociallogin_from_response(request, _fetch_provider_user(input.provider, input.access_token))
+    user_data = _fetch_provider_user(input.provider, input.access_token)
+    login = provider.sociallogin_from_response(request, user_data)
 
     # Check if social account already exists
-    existing = SocialAccount.objects.filter(
-        provider=input.provider, uid=login.account.uid
-    ).select_related("user").first()
+    existing = (
+        SocialAccount.objects.filter(provider=input.provider, uid=login.account.uid)
+        .select_related("user")
+        .first()
+    )
 
     if existing:
         user = existing.user
@@ -93,7 +89,10 @@ def _do_social_login(info: Info, input: SocialLoginInput) -> AuthResponse:
         email = extra_data.get("email", "")
         first_name = extra_data.get("given_name", extra_data.get("first_name", ""))
         last_name = extra_data.get("family_name", extra_data.get("last_name", ""))
-        username = email.split("@")[0] if email else f"{input.provider}_{login.account.uid}"
+        if email:
+            username = email.split("@")[0]
+        else:
+            username = f"{input.provider}_{login.account.uid}"
 
         # Ensure unique username
         base_username = username

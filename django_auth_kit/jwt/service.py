@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import jwt
 
@@ -13,7 +13,7 @@ class JWTService:
 
     @classmethod
     def create_access_token(cls, user) -> str:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         payload = {
             "sub": str(user.pk),
             "iat": now,
@@ -31,7 +31,7 @@ class JWTService:
 
     @classmethod
     def create_refresh_token(cls, user) -> str:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         payload = {
             "sub": str(user.pk),
             "iat": now,
