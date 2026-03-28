@@ -64,3 +64,8 @@ select = [
 
 [tool.ruff.lint.isort]
 known-first-party = ["django_auth_kit"]
+
+[tool.uv.workspace]
+members = [
+    "example",
+]
