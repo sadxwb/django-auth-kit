@@ -68,6 +68,20 @@ select = [
 [tool.ruff.lint.isort]
 known-first-party = ["django_auth_kit"]
 
+[tool.semantic_release]
+version_toml = ["pyproject.toml:project.version"]
+branch = "main"
+build_command = "python -m build"
+commit_message = "chore(release): v{version}"
+
+[tool.semantic_release.commit_parser_options]
+allowed_tags = ["build", "chore", "ci", "docs", "feat", "fix", "perf", "style", "refactor", "test"]
+minor_tags = ["feat"]
+patch_tags = ["fix", "perf"]
+
+[tool.semantic_release.remote.token]
+env = "GITHUB_TOKEN"
+
 [tool.uv.workspace]
 members = [
     "example",
