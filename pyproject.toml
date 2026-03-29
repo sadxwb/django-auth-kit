@@ -71,7 +71,6 @@ known-first-party = ["django_auth_kit"]
 [tool.semantic_release]
 version_toml = ["pyproject.toml:project.version"]
 branch = "main"
-build_command = "python -m build"
 commit_message = "chore(release): v{version}"
 
 [tool.semantic_release.commit_parser_options]
