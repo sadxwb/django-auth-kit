@@ -37,8 +37,8 @@ def _user_to_type(user) -> UserType:
     )
 
 
-@strawberry.type
-class Query:
+@strawberry.type(name="Query")
+class UserProfileQuery:
     @strawberry.field
     def me(self, info: Info) -> UserType:
         user = get_authenticated_user(info)

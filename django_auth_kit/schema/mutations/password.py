@@ -18,7 +18,7 @@ def _is_email(identifier: str) -> bool:
     return bool(_EMAIL_RE.match(identifier))
 
 
-@strawberry.type
+@strawberry.type(name="Mutation")
 class PasswordMutation:
     @strawberry.mutation
     def change_password(

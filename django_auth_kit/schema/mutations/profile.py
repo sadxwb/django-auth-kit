@@ -9,7 +9,7 @@ from django_auth_kit.schema.types import AuthResponse
 from django_auth_kit.schema.utils import get_current_user
 
 
-@strawberry.type
+@strawberry.type(name="Mutation")
 class ProfileMutation:
     @strawberry.mutation
     def update_profile(self, info: Info, input: UpdateProfileInput) -> AuthResponse:

@@ -1,17 +1,30 @@
-from __future__ import annotations
-
 import strawberry
+from strawberry.tools import merge_types
 
 from django_auth_kit.schema.mutations.auth import AuthMutation
 from django_auth_kit.schema.mutations.password import PasswordMutation
 from django_auth_kit.schema.mutations.profile import ProfileMutation
 from django_auth_kit.schema.mutations.social import SocialMutation
-from django_auth_kit.schema.queries import Query
+from django_auth_kit.schema.queries import UserProfileQuery
 
 
-@strawberry.type
-class Mutation(AuthMutation, PasswordMutation, ProfileMutation, SocialMutation):
-    pass
+Mutation = merge_types(
+    name="Mutation",
+    types=(
+        AuthMutation,
+        PasswordMutation,
+        ProfileMutation,
+        SocialMutation,
+    ),
+)
 
 
-schema = strawberry.Schema(query=Query, mutation=Mutation)
+Query = merge_types(
+    name="Query",
+    types=(
+        UserProfileQuery,
+    )
+)
+
+
+schema = strawberry.Schema(query=Query, mutation=Mutation,)

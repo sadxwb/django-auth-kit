@@ -27,7 +27,7 @@ def _is_email(identifier: str) -> bool:
     return bool(_EMAIL_RE.match(identifier))
 
 
-@strawberry.type
+@strawberry.type(name="Mutation")
 class AuthMutation:
     @strawberry.mutation
     def send_otp(self, input: SendOtpInput) -> OperationResult:

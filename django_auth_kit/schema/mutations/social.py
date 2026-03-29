@@ -7,7 +7,7 @@ from django_auth_kit.schema.inputs import SocialLoginInput
 from django_auth_kit.schema.types import AuthResponse
 
 
-@strawberry.type
+@strawberry.type(name="Mutation")
 class SocialMutation:
     @strawberry.mutation
     def social_login(self, info: Info, input: SocialLoginInput) -> AuthResponse:
