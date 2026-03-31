@@ -12,12 +12,18 @@ class SocialMutation:
     @strawberry.mutation
     def social_login(self, info: Info, input: SocialLoginInput) -> AuthResponse:
         """
-        Authenticate via a social provider using an access token obtained client-side.
+        Authenticate via a social provider using a token obtained client-side.
 
-        Requires django-allauth to be installed and the provider to be enabled
-        in AUTH_KIT["SOCIAL_PROVIDERS"].
+        Requires django-allauth to be installed with the desired provider
+        configured. The provider must also be listed in
+        AUTH_KIT["SOCIAL_PROVIDERS"].
 
-        Supported providers: google, facebook, apple, microsoft, azure.
+        Pass ``access_token`` or ``id_token`` depending on the provider:
+        - Google, Apple, OpenID Connect: ``id_token``
+        - Facebook: ``access_token``
+
+        All user creation, account linking, and email matching is handled
+        by django-allauth's adapter infrastructure.
         """
         try:
             return _do_social_login(info, input)
@@ -31,107 +37,29 @@ class SocialMutation:
 
 
 def _do_social_login(info: Info, input: SocialLoginInput) -> AuthResponse:
-    from django.contrib.auth import get_user_model
-
-    from django_auth_kit import settings as kit_settings
     from django_auth_kit.jwt.service import JWTService
-    from django_auth_kit.models import UserEmail
     from django_auth_kit.schema.queries import _user_to_type
     from django_auth_kit.schema.types import AuthTokens
-
-    enabled_providers = kit_settings.SOCIAL_PROVIDERS()
-    if input.provider not in enabled_providers:
-        return AuthResponse(
-            success=False,
-            message=f"Provider '{input.provider}' is not enabled.",
-        )
-
-    from allauth.socialaccount.models import SocialAccount, SocialApp, SocialToken
-    from allauth.socialaccount.providers import registry
+    from django_auth_kit.social.service import SocialLoginService
 
     request = info.context.request
-    User = get_user_model()
 
-    provider_cls = registry.by_id(input.provider, request)
-    if provider_cls is None:
+    # Build the token dict that allauth providers expect
+    token = {}
+    if input.access_token:
+        token["access_token"] = input.access_token
+    if input.id_token:
+        token["id_token"] = input.id_token
+    if input.client_id:
+        token["client_id"] = input.client_id
+
+    if not token.get("access_token") and not token.get("id_token"):
         return AuthResponse(
             success=False,
-            message=f"Provider '{input.provider}' is not configured.",
+            message="Either access_token or id_token is required.",
         )
 
-    # Use the provider's API to fetch user info with the access token
-    social_app = SocialApp.objects.filter(provider=input.provider).first()
-    if social_app is None:
-        return AuthResponse(
-            success=False,
-            message=f"No SocialApp configured for '{input.provider}'.",
-        )
-
-    # Fetch user info from provider and build a SocialLogin
-    provider = provider_cls
-    user_data = _fetch_provider_user(input.provider, input.access_token)
-    login = provider.sociallogin_from_response(request, user_data)
-
-    # Check if social account already exists
-    existing = (
-        SocialAccount.objects.filter(provider=input.provider, uid=login.account.uid)
-        .select_related("user")
-        .first()
-    )
-
-    if existing:
-        user = existing.user
-        if not user.is_active:
-            return AuthResponse(success=False, message="Account is disabled.")
-    else:
-        # Create new user from social data
-        extra_data = login.account.extra_data
-        email = extra_data.get("email", "")
-        first_name = extra_data.get("given_name", extra_data.get("first_name", ""))
-        last_name = extra_data.get("family_name", extra_data.get("last_name", ""))
-        if email:
-            username = email.split("@")[0]
-        else:
-            username = f"{input.provider}_{login.account.uid}"
-
-        # Ensure unique username
-        base_username = username
-        counter = 1
-        while User.objects.filter(username=username).exists():
-            username = f"{base_username}{counter}"
-            counter += 1
-
-        user = User.objects.create_user(
-            username=username,
-            email=email,
-            first_name=first_name,
-            last_name=last_name,
-        )
-        user.set_unusable_password()
-        user.save()
-
-        # Create social account
-        SocialAccount.objects.create(
-            user=user,
-            provider=input.provider,
-            uid=login.account.uid,
-            extra_data=login.account.extra_data,
-        )
-
-        # Create email record if available
-        if email:
-            UserEmail.objects.get_or_create(
-                user=user,
-                email=email,
-                defaults={"is_verified": True, "is_primary": True},
-            )
-
-    # Save / update token
-    SocialToken.objects.update_or_create(
-        app=social_app,
-        account=SocialAccount.objects.get(user=user, provider=input.provider),
-        defaults={"token": input.access_token},
-    )
+    user = SocialLoginService.complete_login(request, input.provider, token)
 
     tokens = JWTService.create_token_pair(user)
     return AuthResponse(
@@ -140,51 +68,3 @@ def _do_social_login(info: Info, input: SocialLoginInput) -> AuthResponse:
         tokens=AuthTokens(**tokens),
         user=_user_to_type(user),
     )
-
-
-def _fetch_provider_user(provider: str, access_token: str) -> dict:
-    """Fetch user info from the social provider's API."""
-    import requests
-
-    urls = {
-        "google": "https://www.googleapis.com/oauth2/v3/userinfo",
-        "facebook": "https://graph.facebook.com/me?fields=id,name,email,first_name,last_name,picture",
-        "microsoft": "https://graph.microsoft.com/v1.0/me",
-        "azure": "https://graph.microsoft.com/v1.0/me",
-    }
-
-    url = urls.get(provider)
-    if url is None:
-        raise ValueError(f"Unsupported provider for user info fetch: {provider}")
-
-    headers = {"Authorization": f"Bearer {access_token}"}
-    resp = requests.get(url, headers=headers, timeout=10)
-    resp.raise_for_status()
-    data = resp.json()
-
-    # Normalize to common fields
-    if provider == "google":
-        return {
-            "id": data.get("sub"),
-            "email": data.get("email", ""),
-            "given_name": data.get("given_name", ""),
-            "family_name": data.get("family_name", ""),
-            "picture": data.get("picture", ""),
-        }
-    elif provider == "facebook":
-        return {
-            "id": data.get("id"),
-            "email": data.get("email", ""),
-            "first_name": data.get("first_name", ""),
-            "last_name": data.get("last_name", ""),
-            "picture": data.get("picture", {}).get("data", {}).get("url", ""),
-        }
-    elif provider in ("microsoft", "azure"):
-        return {
-            "id": data.get("id"),
-            "email": data.get("mail", data.get("userPrincipalName", "")),
-            "given_name": data.get("givenName", ""),
-            "family_name": data.get("surname", ""),
-        }
-
-    return data

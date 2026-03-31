@@ -33,7 +33,8 @@ django_auth_kit/
 │       ├── password.py # changePassword, forgotPassword
 │       ├── profile.py  # updateProfile
 │       └── social.py   # socialLogin (requires django-allauth)
-├── social/             # Reserved for social login extensions
+├── social/
+│   └── service.py      # SocialLoginService: bridges GraphQL to allauth's provider infrastructure
 ├── templates/
 │   └── django_auth_kit/
 │       ├── otp_email.html
@@ -61,7 +62,7 @@ django_auth_kit/
   3. `request.consumer.scope["user"]` — ASGI queries/mutations via Channels
   4. `request.scope["user"]` — WebSocket subscriptions
 
-- **Social login is optional**: Gated behind `try/except ImportError` in the mutation. Requires `pip install django-auth-kit[social]`. Provider user-info URLs are in `_fetch_provider_user()` in `schema/mutations/social.py`.
+- **Social login is optional**: Gated behind `try/except ImportError` in the mutation. Requires `pip install django-auth-kit[social]`. Delegates entirely to allauth's `provider.verify_token()` for token verification and `adapter.save_user()` for user creation — no provider-specific code in django-auth-kit itself. Any allauth provider with `supports_token_authentication = True` works automatically.
 
 - **GraphQL schema composition**: `schema/schema.py` combines `Query` with multiple mutation classes via multiple inheritance: `Mutation(AuthMutation, PasswordMutation, ProfileMutation, SocialMutation)`. To add a mutation, create a new class in `schema/mutations/` and add it to the bases.
 

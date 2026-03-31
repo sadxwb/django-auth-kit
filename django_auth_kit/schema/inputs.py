@@ -64,4 +64,6 @@ class UpdateProfileInput:
 @strawberry.input
 class SocialLoginInput:
     provider: str
-    access_token: str
+    access_token: str | None = None
+    id_token: str | None = None
+    client_id: str | None = None

@@ -1,6 +1,8 @@
 # Social Login
 
-Django Auth Kit supports social authentication via [django-allauth](https://docs.allauth.org/). The client obtains an access token from the social provider (e.g. via OAuth on the frontend), then exchanges it for JWT tokens via the `socialLogin` mutation.
+Django Auth Kit supports social authentication via [django-allauth](https://docs.allauth.org/). The client obtains a token from the social provider (e.g. via OAuth on the frontend), then exchanges it for JWT tokens via the `socialLogin` mutation.
+
+All provider-specific logic (token verification, user-info extraction, account linking) is handled by allauth's provider infrastructure. Any provider that allauth supports with `supports_token_authentication = True` works automatically.
 
 ## Setup
 
@@ -24,7 +26,7 @@ INSTALLED_APPS = [
     "allauth.socialaccount.providers.google",
     "allauth.socialaccount.providers.facebook",
     "allauth.socialaccount.providers.apple",
-    "allauth.socialaccount.providers.microsoft",
+    "allauth.socialaccount.providers.openid_connect",
 
     "django_auth_kit",
 ]
@@ -36,7 +38,7 @@ SITE_ID = 1
 
 ```python
 AUTH_KIT = {
-    "SOCIAL_PROVIDERS": ["google", "facebook", "apple", "microsoft"],
+    "SOCIAL_PROVIDERS": ["google", "facebook", "apple"],
 }
 ```
 
@@ -66,26 +68,31 @@ python manage.py migrate
 
 ## Supported Providers
 
-| Provider | `provider` value | User info endpoint |
-|----------|------------------|--------------------|
-| Google | `"google"` | `googleapis.com/oauth2/v3/userinfo` |
-| Facebook | `"facebook"` | `graph.facebook.com/me` |
-| Apple | `"apple"` | Token-based (ID token) |
-| Microsoft | `"microsoft"` | `graph.microsoft.com/v1.0/me` |
-| Azure AD | `"azure"` | `graph.microsoft.com/v1.0/me` |
+Any allauth provider with `supports_token_authentication = True` works. As of allauth v65:
+
+| Provider | `provider` value | Token type |
+|----------|------------------|------------|
+| Google | `"google"` | `id_token` |
+| Facebook | `"facebook"` | `access_token` |
+| Apple | `"apple"` | `id_token` |
+| OpenID Connect | `"openid_connect"` | `id_token` |
+
+Providers that only support redirect-based OAuth (e.g. Microsoft, GitHub) require the standard OAuth redirect flow and cannot be used with the `socialLogin` mutation directly.
 
 ## Flow
 
-1. **Client** authenticates with the social provider and receives an access token.
-2. **Client** calls `socialLogin` with the provider name and access token.
-3. **Server** fetches user info from the provider's API using the access token.
-4. **Server** creates or retrieves the user, links the social account, and returns JWT tokens.
+1. **Client** authenticates with the social provider and receives a token.
+2. **Client** calls `socialLogin` with the provider name and token.
+3. **Server** delegates to allauth's `provider.verify_token()` which validates the token and extracts user info using the provider's own logic.
+4. **Server** uses allauth's `sociallogin.lookup()` to match against existing accounts (by social account UID or verified email).
+5. **Server** creates or retrieves the user (via allauth's adapter hooks) and returns JWT tokens.
 
 ```graphql
+# Google (uses id_token)
 mutation {
   socialLogin(input: {
     provider: "google"
-    accessToken: "ya29.a0AfH6SM..."
+    idToken: "eyJhbGciOiJSUzI1NiIs..."
   }) {
     success
     tokens {
@@ -95,16 +102,73 @@ mutation {
     user {
       id
       username
-      displayName
+    }
+  }
+}
+
+# Facebook (uses access_token)
+mutation {
+  socialLogin(input: {
+    provider: "facebook"
+    accessToken: "EAAGm0PX4ZCps..."
+  }) {
+    success
+    tokens {
+      accessToken
+      refreshToken
     }
   }
 }
 ```
 
-## Adding a Custom Provider
+## How It Works
 
-To add a provider not included by default:
+The `SocialLoginService` in `django_auth_kit/social/service.py` bridges the GraphQL mutation to allauth:
+
+1. **Provider resolution**: Uses `allauth.socialaccount.adapter.get_adapter().get_provider()` to resolve the provider class, including `SocialApp` configuration.
+
+2. **Token verification**: Calls `provider.verify_token(request, token)` — each allauth provider implements this differently:
+   - **Google**: Decodes and verifies the ID token JWT against Google's public keys.
+   - **Apple**: Decodes the ID token against Apple's JWKS endpoint.
+   - **Facebook**: Exchanges the access token for user info via Facebook's Graph API.
+   - **OpenID Connect**: Verifies the ID token against the provider's JWKS.
+
+3. **Account matching**: `sociallogin.lookup()` checks for existing `SocialAccount` by provider + UID, then falls back to matching by verified email.
+
+4. **User creation**: For new users, `adapter.save_user()` creates the user, respecting allauth's adapter hooks (`populate_user`, `is_open_for_signup`, etc.).
+
+5. **JWT issuance**: After allauth resolves the user, django-auth-kit issues its own JWT token pair.
+
+## Customization
+
+Since all user creation flows through allauth's adapter, you can customize behavior by subclassing `DefaultSocialAccountAdapter`:
+
+```python
+# myapp/adapters.py
+from allauth.socialaccount.adapter import DefaultSocialAccountAdapter
+
+class MySocialAccountAdapter(DefaultSocialAccountAdapter):
+    def populate_user(self, request, sociallogin, data):
+        user = super().populate_user(request, sociallogin, data)
+        # Custom logic here
+        return user
+
+    def is_open_for_signup(self, request, sociallogin):
+        # Control who can sign up
+        return True
+```
+
+```python
+# settings.py
+SOCIALACCOUNT_ADAPTER = "myapp.adapters.MySocialAccountAdapter"
+```
+
+## Adding a New Provider
+
+To add any allauth provider that supports token authentication:
 
 1. Add the allauth provider app to `INSTALLED_APPS`.
 2. Add the provider key to `AUTH_KIT["SOCIAL_PROVIDERS"]`.
-3. Add the user-info URL to `_fetch_provider_user()` in `django_auth_kit/schema/mutations/social.py`.
+3. Configure a `SocialApp` with client credentials (via admin or settings).
+
+No code changes needed — allauth handles all provider-specific logic.
