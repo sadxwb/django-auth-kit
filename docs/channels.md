@@ -16,6 +16,8 @@ There are two approaches — choose based on your needs.
 
 `GraphQLHTTPConsumer` extends Strawberry's Channels HTTP consumer. It decodes the JWT Bearer token in `execute_operation` and injects the authenticated user into `scope["user"]`, `request.user`, and `context["user"]`.
 
+`GraphQLWSConsumer` extends Strawberry's Channels WebSocket consumer for GraphQL subscriptions. It authenticates via the `connection_init` payload (see [Subscriptions](#subscriptions) below).
+
 ```python
 # asgi.py
 import os
@@ -26,7 +28,7 @@ django_asgi_application = get_asgi_application()
 
 from channels.routing import ProtocolTypeRouter, URLRouter
 from django.urls import re_path
-from django_auth_kit.channels import GraphQLHTTPConsumer
+from django_auth_kit.channels import GraphQLHTTPConsumer, GraphQLWSConsumer
 from myproject.schema import schema
 
 application = ProtocolTypeRouter({
@@ -34,10 +36,13 @@ application = ProtocolTypeRouter({
         re_path(r"^graphql", GraphQLHTTPConsumer.as_asgi(schema=schema)),
         re_path(r"^", django_asgi_application),
     ]),
+    "websocket": URLRouter([
+        re_path(r"^graphql", GraphQLWSConsumer.as_asgi(schema=schema)),
+    ]),
 })
 ```
 
-This is the simplest approach — no extra middleware needed. The consumer handles auth internally.
+This is the simplest approach — no extra middleware needed. The consumers handle auth internally.
 
 ### Option B: Scope-level middleware
 
@@ -48,7 +53,7 @@ This is the simplest approach — no extra middleware needed. The consumer handl
 from channels.auth import AuthMiddlewareStack
 from channels.routing import ProtocolTypeRouter, URLRouter
 from django.urls import re_path
-from django_auth_kit.channels import GraphQLHTTPConsumer, channels_jwt_middleware
+from django_auth_kit.channels import GraphQLHTTPConsumer, GraphQLWSConsumer, channels_jwt_middleware
 
 application = ProtocolTypeRouter({
     "http": URLRouter([
@@ -59,6 +64,14 @@ application = ProtocolTypeRouter({
             ),
         ),
         re_path(r"^", django_asgi_application),
+    ]),
+    "websocket": URLRouter([
+        re_path(
+            r"^graphql",
+            channels_jwt_middleware(
+                GraphQLWSConsumer.as_asgi(schema=schema),
+            ),
+        ),
     ]),
 })
 ```
@@ -94,6 +107,58 @@ class GraphQLHTTPConsumer(_GraphQLHTTPConsumer):
                 context["x-organization-ref"] = org_ref
 
         return result
+```
+
+## Subscriptions
+
+`GraphQLWSConsumer` provides JWT authentication for GraphQL subscriptions over WebSocket. Clients authenticate by sending the JWT in the `connection_init` payload:
+
+```json
+{"type": "connection_init", "payload": {"token": "<access_token>"}}
+```
+
+The token is verified during the WebSocket handshake (`on_ws_connect`). If valid, the user is available in resolvers via `get_current_user(info)`.
+
+### Defining subscriptions
+
+Use Strawberry's `@strawberry.type` with `AsyncGenerator` to define subscriptions:
+
+```python
+import strawberry
+from typing import AsyncGenerator
+
+@strawberry.type
+class Subscription:
+    @strawberry.subscription
+    async def count(self, info: strawberry.types.Info, target: int = 100) -> AsyncGenerator[int, None]:
+        for i in range(target):
+            yield i
+            await asyncio.sleep(0.5)
+```
+
+Include the subscription type in your schema:
+
+```python
+schema = strawberry.Schema(
+    query=Query,
+    mutation=Mutation,
+    subscription=Subscription,
+)
+```
+
+### Client connection example
+
+Using `graphql-ws` protocol (the default for Strawberry):
+
+```javascript
+import { createClient } from 'graphql-ws';
+
+const client = createClient({
+  url: 'ws://localhost:8000/graphql',
+  connectionParams: {
+    token: '<access_token>',
+  },
+});
 ```
 
 ## How user resolution works
