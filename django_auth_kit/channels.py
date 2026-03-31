@@ -3,16 +3,21 @@ Channels integration for django-auth-kit.
 
 Provides:
 - ``GraphQLHTTPConsumer``: Strawberry Channels HTTP consumer with JWT auth.
+- ``GraphQLWSConsumer``: Strawberry Channels WebSocket consumer with JWT auth
+  for GraphQL subscriptions.
 - ``channels_jwt_middleware``: ASGI scope-level JWT middleware for Channels.
 
 Usage (consumer-level auth — recommended)::
 
-    from django_auth_kit.channels import GraphQLHTTPConsumer
+    from django_auth_kit.channels import GraphQLHTTPConsumer, GraphQLWSConsumer
 
     application = ProtocolTypeRouter({
         "http": URLRouter([
             re_path(r"^graphql", GraphQLHTTPConsumer.as_asgi(schema=schema)),
             re_path(r"^", django_asgi_application),
+        ]),
+        "websocket": URLRouter([
+            re_path(r"^graphql", GraphQLWSConsumer.as_asgi(schema=schema)),
         ]),
     })
 
@@ -34,15 +39,22 @@ Usage (scope-level middleware)::
 
 from __future__ import annotations
 
+import logging
+
 from channels.db import database_sync_to_async
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import AnonymousUser
-from strawberry.channels import GraphQLHTTPConsumer as _GraphQLHTTPConsumer
-from strawberry.channels.handlers.http_handler import ChannelsRequest
+from strawberry.channels import (
+    GraphQLHTTPConsumer as _GraphQLHTTPConsumer,
+    ChannelsRequest,
+)
+from strawberry.channels import GraphQLWSConsumer as _GraphQLWSConsumer
 from strawberry.http.typevars import Context, RootValue, SubResponse
 from strawberry.types import ExecutionResult, SubscriptionExecutionResult
 
 from django_auth_kit.jwt.service import JWTService
+
+logger = logging.getLogger(__name__)
 
 
 @database_sync_to_async
@@ -86,7 +98,8 @@ class GraphQLHTTPConsumer(_GraphQLHTTPConsumer):
         if token:
             try:
                 user = await _get_user_from_token(token)
-            except Exception:
+            except Exception as e:
+                logger.warning("JWT authentication failed: %s", e)
                 user = None
 
             if user is not None:
@@ -107,6 +120,40 @@ class GraphQLHTTPConsumer(_GraphQLHTTPConsumer):
         return await super().execute_operation(
             request, context, root_value, sub_response
         )
+
+
+class GraphQLWSConsumer(_GraphQLWSConsumer):
+    """
+    Strawberry Channels WebSocket consumer with JWT authentication
+    for GraphQL subscriptions.
+
+    Clients send their JWT in the ``connection_init`` payload::
+
+        {"type": "connection_init", "payload": {"token": "<jwt>"}}
+
+    The token is verified during ``on_ws_connect``.  If valid, the
+    resolved user is placed into ``context["user"]`` where
+    ``get_current_user()`` already looks for it.
+    """
+
+    async def on_ws_connect(self, context):
+        params = context.get("connection_params") or {}
+        token = params.get("token")
+
+        if not token:
+            context["user"] = AnonymousUser()
+            return
+
+        try:
+            user = await _get_user_from_token(token)
+        except Exception as e:
+            logger.warning("WebSocket JWT authentication failed: %s", e)
+            user = None
+
+        if user is not None:
+            context["user"] = user
+        else:
+            context["user"] = AnonymousUser()
 
 
 class channels_jwt_middleware:
@@ -135,7 +182,8 @@ class channels_jwt_middleware:
             if token:
                 try:
                     user = await _get_user_from_token(token)
-                except Exception:
+                except Exception as e:
+                    logger.warning("JWT scope middleware authentication failed: %s", e)
                     user = None
 
                 if user is not None:
