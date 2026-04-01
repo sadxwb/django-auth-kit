@@ -4,6 +4,8 @@ The GraphQL endpoint is served at the path where you mount the URLs (e.g. `/auth
 
 Authenticated mutations/queries require the `Authorization: Bearer <access_token>` header.
 
+All mutations are rate-limited per client IP. When a rate limit is exceeded, the mutation returns `success: false` with a message indicating the retry delay. See the [Configuration Reference](configuration.md#rate-limiting) for default rates and how to customize them.
+
 ## Queries
 
 ### `me`

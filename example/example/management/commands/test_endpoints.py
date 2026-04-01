@@ -68,6 +68,10 @@ class Command(BaseCommand):
         self.test_register_duplicate()
         self.test_send_otp_cooldown()
 
+        # Rate limiting
+        self.test_rate_limit_login()
+        self.test_rate_limit_send_otp()
+
         # Summary
         self.stdout.write("\n" + "=" * 60)
         total = self.passed + self.failed
@@ -428,3 +432,93 @@ class Command(BaseCommand):
 
         # Restore
         settings.AUTH_KIT["OTP_COOLDOWN"] = original
+
+    def test_rate_limit_login(self):
+        self.stdout.write("\n--- Rate Limiting ---")
+        from django.conf import settings
+
+        # Enable a tight rate limit for login
+        original_rates = settings.AUTH_KIT.get("RATE_LIMITS", {})
+        settings.AUTH_KIT["RATE_LIMITS"] = {"login": "2/min"}
+
+        cache.clear()
+
+        # Two requests should succeed
+        for _ in range(2):
+            self._gql(
+                """
+                mutation($input: LoginInput!) {
+                    login(input: $input) { success message }
+                }
+                """,
+                {"input": {"identifier": EMAIL, "password": PASSWORD}},
+            )
+
+        # Third should be rate-limited
+        data = self._gql(
+            """
+            mutation($input: LoginInput!) {
+                login(input: $input) { success message }
+            }
+            """,
+            {"input": {"identifier": EMAIL, "password": PASSWORD}},
+        )
+        self._check("login (rate limited)", data, "data.login.success", False)
+
+        message = (data.get("data") or {}).get("login", {}).get("message", "")
+        if "Rate limit" in message:
+            self.stdout.write(self.style.SUCCESS("  PASS  login rate limit message"))
+            self.passed += 1
+        else:
+            self.stdout.write(self.style.ERROR("  FAIL  login rate limit message"))
+            self.stdout.write(f"        expected 'Rate limit' in: {message!r}")
+            self.failed += 1
+
+        # Restore
+        settings.AUTH_KIT["RATE_LIMITS"] = original_rates
+        cache.clear()
+
+    def test_rate_limit_send_otp(self):
+        from django.conf import settings
+
+        original_rates = settings.AUTH_KIT.get("RATE_LIMITS", {})
+        settings.AUTH_KIT["RATE_LIMITS"] = {"send_otp": "1/min"}
+
+        cache.clear()
+
+        # First should succeed
+        self._gql(
+            """
+            mutation($input: SendOtpInput!) {
+                sendOtp(input: $input) { success message }
+            }
+            """,
+            {
+                "input": {
+                    "identifier": "ratelimit@example.com",
+                    "purpose": "register",
+                    "channel": "email",
+                }
+            },
+        )
+
+        # Second should be rate-limited
+        data = self._gql(
+            """
+            mutation($input: SendOtpInput!) {
+                sendOtp(input: $input) { success message }
+            }
+            """,
+            {
+                "input": {
+                    "identifier": "ratelimit2@example.com",
+                    "purpose": "register",
+                    "channel": "email",
+                }
+            },
+        )
+        self._check("sendOtp (rate limited)", data, "data.sendOtp.success", False)
+
+        # Restore
+        settings.AUTH_KIT["RATE_LIMITS"] = original_rates
+        cache.clear()

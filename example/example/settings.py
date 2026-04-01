@@ -130,6 +130,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 AUTH_KIT = {
     'OTP_COOLDOWN': 0,  # No cooldown for development
     'SMS_BACKEND': 'django_auth_kit.otp.backends.console.ConsoleSmsBackend',
+    'RATE_LIMITS': {},  # No rate limiting for development
 }
 
 CACHES = {

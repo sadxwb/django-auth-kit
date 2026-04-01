@@ -7,6 +7,7 @@ from strawberry.types import Info
 
 from django_auth_kit.models import UserEmail, UserMobile
 from django_auth_kit.otp.service import OTPService
+from django_auth_kit.ratelimit import check_rate_limit
 from django_auth_kit.schema.inputs import ChangePasswordInput, ForgotPasswordInput
 from django_auth_kit.schema.types import OperationResult
 from django_auth_kit.schema.utils import get_current_user
@@ -25,6 +26,14 @@ class PasswordMutation:
         self, info: Info, input: ChangePasswordInput
     ) -> OperationResult:
         """Change password for the authenticated user."""
+        allowed, retry_after = check_rate_limit(
+            info.context.request, "change_password"
+        )
+        if not allowed:
+            return OperationResult(
+                success=False,
+                message=f"Rate limit exceeded. Try again in {retry_after}s.",
+            )
         user = get_current_user(info)
         if not user.is_authenticated:
             return OperationResult(success=False, message="Authentication required.")
@@ -47,12 +56,20 @@ class PasswordMutation:
         return OperationResult(success=True, message="Password changed successfully.")
 
     @strawberry.mutation
-    def forgot_password(self, input: ForgotPasswordInput) -> OperationResult:
+    def forgot_password(self, info: Info, input: ForgotPasswordInput) -> OperationResult:
         """
         Reset password using a verified OTP.
 
         Flow: send_otp(purpose="forgot_password") -> verify_otp -> forgot_password
         """
+        allowed, retry_after = check_rate_limit(
+            info.context.request, "forgot_password"
+        )
+        if not allowed:
+            return OperationResult(
+                success=False,
+                message=f"Rate limit exceeded. Try again in {retry_after}s.",
+            )
         if not OTPService.is_verified(input.identifier, "forgot_password"):
             return OperationResult(
                 success=False, message="OTP not verified. Please verify first."

@@ -79,6 +79,25 @@ def SOCIAL_PROVIDERS():
     return get_setting("SOCIAL_PROVIDERS", [])
 
 
+# --- Rate Limiting ---
+
+
+def RATE_LIMITS():
+    return get_setting(
+        "RATE_LIMITS",
+        {
+            "send_otp": "5/min",
+            "verify_otp": "5/min",
+            "login": "5/min",
+            "register": "3/min",
+            "forgot_password": "3/min",
+            "social_login": "5/min",
+            "change_password": "3/min",
+            "refresh_token": "10/min",
+        },
+    )
+
+
 # --- Email ---
 
 

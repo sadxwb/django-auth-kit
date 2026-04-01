@@ -1,3 +1,4 @@
+
 # Configuration
 
 All settings are configured via the `AUTH_KIT` dictionary in your Django `settings.py`.
@@ -43,6 +44,60 @@ Every setting has a sensible default. You only need to override what you want to
 | `OTP_EMAIL_FROM` | `str` | `DEFAULT_FROM_EMAIL` | Sender address for OTP emails |
 
 OTP emails are sent using Django's built-in email backend. Configure `EMAIL_BACKEND`, `EMAIL_HOST`, etc. in your Django settings as usual.
+
+## Rate Limiting
+
+Rate limiting uses DRF-style rate strings and is applied per client IP via Django's cache framework. Every mutation has a sensible default; set a key to `None` to disable limiting for that action.
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `RATE_LIMITS` | `dict` | *(see below)* | Per-action rate limits |
+
+Default `RATE_LIMITS`:
+
+```python
+AUTH_KIT = {
+    "RATE_LIMITS": {
+        "send_otp": "5/min",
+        "verify_otp": "5/min",
+        "login": "5/min",
+        "register": "3/min",
+        "forgot_password": "3/min",
+        "social_login": "5/min",
+        "change_password": "3/min",
+        "refresh_token": "10/min",
+    },
+}
+```
+
+Rate format: `"<number>/<period>"` where period is one of `s`, `sec`, `m`, `min`, `h`, `hour`, `d`, `day`.
+
+To disable rate limiting entirely:
+
+```python
+AUTH_KIT = {
+    "RATE_LIMITS": {},
+}
+```
+
+To override a single action:
+
+```python
+AUTH_KIT = {
+    "RATE_LIMITS": {
+        "send_otp": "10/hour",
+        "verify_otp": "5/min",
+        "login": "10/min",
+        "register": "3/min",
+        "forgot_password": "3/min",
+        "social_login": "5/min",
+        "change_password": "3/min",
+        "refresh_token": "10/min",
+    },
+}
+```
+
+> **Note:** Rate limiting uses Django's cache. For production, configure a persistent cache backend like Redis.
 
 ## Social Login Settings
 
