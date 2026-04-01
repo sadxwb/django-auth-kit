@@ -9,6 +9,7 @@ from django_auth_kit.models import UserEmail, UserMobile
 from django_auth_kit.otp.service import OTPService
 from django_auth_kit.ratelimit import check_rate_limit
 from django_auth_kit.schema.inputs import ChangePasswordInput, ForgotPasswordInput
+from django_auth_kit.schema.utils import get_request
 from django_auth_kit.schema.types import OperationResult
 from django_auth_kit.schema.utils import get_current_user
 
@@ -27,7 +28,7 @@ class PasswordMutation:
     ) -> OperationResult:
         """Change password for the authenticated user."""
         allowed, retry_after = check_rate_limit(
-            info.context.request, "change_password"
+            get_request(info), "change_password"
         )
         if not allowed:
             return OperationResult(
@@ -63,7 +64,7 @@ class PasswordMutation:
         Flow: send_otp(purpose="forgot_password") -> verify_otp -> forgot_password
         """
         allowed, retry_after = check_rate_limit(
-            info.context.request, "forgot_password"
+            get_request(info), "forgot_password"
         )
         if not allowed:
             return OperationResult(

@@ -5,6 +5,7 @@ from strawberry.types import Info
 
 from django_auth_kit.ratelimit import check_rate_limit
 from django_auth_kit.schema.inputs import SocialLoginInput
+from django_auth_kit.schema.utils import get_request
 from django_auth_kit.schema.types import AuthResponse
 
 
@@ -27,7 +28,7 @@ class SocialMutation:
         by django-allauth's adapter infrastructure.
         """
         allowed, retry_after = check_rate_limit(
-            info.context.request, "social_login"
+            get_request(info), "social_login"
         )
         if not allowed:
             return AuthResponse(
@@ -51,7 +52,7 @@ def _do_social_login(info: Info, input: SocialLoginInput) -> AuthResponse:
     from django_auth_kit.schema.types import AuthTokens
     from django_auth_kit.social.service import SocialLoginService
 
-    request = info.context.request
+    request = get_request(info)
 
     # Build the token dict that allauth providers expect
     token = {}

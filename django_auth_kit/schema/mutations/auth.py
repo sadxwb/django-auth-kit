@@ -17,6 +17,7 @@ from django_auth_kit.schema.inputs import (
     SendOtpInput,
     VerifyOtpInput,
 )
+from django_auth_kit.schema.utils import get_request
 from django_auth_kit.schema.queries import _user_to_type
 from django_auth_kit.schema.types import AuthResponse, AuthTokens, OperationResult
 
@@ -34,7 +35,7 @@ class AuthMutation:
     @strawberry.mutation
     def send_otp(self, info: Info, input: SendOtpInput) -> OperationResult:
         """Send an OTP code to the given email or mobile."""
-        allowed, retry_after = check_rate_limit(info.context.request, "send_otp")
+        allowed, retry_after = check_rate_limit(get_request(info), "send_otp")
         if not allowed:
             return OperationResult(
                 success=False,
@@ -55,7 +56,7 @@ class AuthMutation:
     @strawberry.mutation
     def verify_otp(self, info: Info, input: VerifyOtpInput) -> OperationResult:
         """Verify an OTP code."""
-        allowed, retry_after = check_rate_limit(info.context.request, "verify_otp")
+        allowed, retry_after = check_rate_limit(get_request(info), "verify_otp")
         if not allowed:
             return OperationResult(
                 success=False,
@@ -75,7 +76,7 @@ class AuthMutation:
 
         Flow: send_otp -> verify_otp -> register
         """
-        allowed, retry_after = check_rate_limit(info.context.request, "register")
+        allowed, retry_after = check_rate_limit(get_request(info), "register")
         if not allowed:
             return AuthResponse(
                 success=False,
@@ -160,7 +161,7 @@ class AuthMutation:
     @strawberry.mutation
     def login(self, info: Info, input: LoginInput) -> AuthResponse:
         """Login with email or mobile + password."""
-        allowed, retry_after = check_rate_limit(info.context.request, "login")
+        allowed, retry_after = check_rate_limit(get_request(info), "login")
         if not allowed:
             return AuthResponse(
                 success=False,
@@ -203,7 +204,7 @@ class AuthMutation:
     @strawberry.mutation
     def refresh_token(self, info: Info, input: RefreshTokenInput) -> AuthResponse:
         """Get a new token pair using a refresh token."""
-        allowed, retry_after = check_rate_limit(info.context.request, "refresh_token")
+        allowed, retry_after = check_rate_limit(get_request(info), "refresh_token")
         if not allowed:
             return AuthResponse(
                 success=False,
