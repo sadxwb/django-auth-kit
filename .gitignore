@@ -29,6 +29,9 @@ htmlcov/
 db.sqlite3
 media/
 
+# Docs
+site/
+
 # OS
 .DS_Store
 Thumbs.db
