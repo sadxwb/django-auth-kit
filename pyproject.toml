@@ -35,6 +35,10 @@ channels = [
 social = [
     "django-allauth>=64.0.0",
 ]
+docs = [
+    "mkdocs>=1.6",
+    "mkdocs-material>=9.5",
+]
 dev = [
     "pytest",
     "pytest-django",
