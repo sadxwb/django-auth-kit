@@ -2,14 +2,7 @@ from __future__ import annotations
 
 from django.contrib.auth.models import AnonymousUser
 from strawberry.types import Info
-
-
-def get_request(info: Info):
-    """Return the request from Info for both WSGI and ASGI."""
-    try:
-        return info.context.request
-    except AttributeError:
-        return info.context.get("request")
+from strawberry_django.utils.requests import get_request  # noqa: F401 — re-exported
 
 
 def get_current_user(info: Info):
