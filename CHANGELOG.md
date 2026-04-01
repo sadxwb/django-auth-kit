@@ -1,6 +1,23 @@
 # CHANGELOG
 
 
+## v0.4.2 (2026-04-01)
+
+### Continuous Integration
+
+- Include `refactor` in patch tags for semantic release configuration
+  ([`113e586`](https://github.com/sadxwb/django-auth-kit/commit/113e586a25fe68df5a246a8c7ce0789e2cba585f))
+
+### Refactoring
+
+- Replace `EmailMultiAlternatives` with `send_mail` for OTP emails
+  ([`d4028d5`](https://github.com/sadxwb/django-auth-kit/commit/d4028d5d3081528c3cfbcdb31211d03473326993))
+
+Simplify email-sending logic in the OTP service by switching from `EmailMultiAlternatives` to
+  Django's `send_mail`. Update documentation to reflect the change, emphasizing compatibility with
+  Django's `EMAIL_BACKEND` setting.
+
+
 ## v0.4.1 (2026-04-01)
 
 ### Bug Fixes
