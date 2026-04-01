@@ -10,6 +10,7 @@ This is a reusable Django app (`django_auth_kit`) that provides a complete auth 
 django_auth_kit/
 ├── models.py           # UserEmail, UserMobile (linked to AUTH_USER_MODEL)
 ├── settings.py         # All config via AUTH_KIT dict; lazy-evaluated functions
+├── ratelimit.py        # Per-IP rate limiting with DRF-style rates, cache-based
 ├── middleware.py        # JWT Bearer token middleware (sync + async, for WSGI/ASGI without Channels)
 ├── channels.py         # Django Channels integration: GraphQLHTTPConsumer + channels_jwt_middleware
 ├── admin.py            # Admin with inline email/mobile
@@ -63,6 +64,8 @@ django_auth_kit/
   4. `request.scope["user"]` — WebSocket subscriptions
 
 - **Social login is optional**: Gated behind `try/except ImportError` in the mutation. Requires `pip install django-auth-kit[social]`. Delegates entirely to allauth's `provider.verify_token()` for token verification and `adapter.save_user()` for user creation — no provider-specific code in django-auth-kit itself. Any allauth provider with `supports_token_authentication = True` works automatically.
+
+- **Rate limiting is cache-based** (`ratelimit.py`): Every mutation with abuse potential (OTP, login, register, password reset, social login, token refresh) is rate-limited per client IP using Django's cache framework. Rates are configured with DRF-style strings (e.g. `"5/min"`, `"100/hour"`) via `AUTH_KIT["RATE_LIMITS"]`. The sliding-window algorithm stores request timestamps in cache and prunes expired entries on each check. Supports both WSGI (`request.META`) and ASGI/Channels (`scope["client"]`) IP extraction, including `X-Forwarded-For` for reverse proxy setups. Disabled by setting `RATE_LIMITS` to `{}`.
 
 - **GraphQL schema composition**: `schema/schema.py` combines `Query` with multiple mutation classes via multiple inheritance: `Mutation(AuthMutation, PasswordMutation, ProfileMutation, SocialMutation)`. To add a mutation, create a new class in `schema/mutations/` and add it to the bases.
 

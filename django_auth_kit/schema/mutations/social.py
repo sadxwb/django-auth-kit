@@ -3,6 +3,7 @@ from __future__ import annotations
 import strawberry
 from strawberry.types import Info
 
+from django_auth_kit.ratelimit import check_rate_limit
 from django_auth_kit.schema.inputs import SocialLoginInput
 from django_auth_kit.schema.types import AuthResponse
 
@@ -25,6 +26,14 @@ class SocialMutation:
         All user creation, account linking, and email matching is handled
         by django-allauth's adapter infrastructure.
         """
+        allowed, retry_after = check_rate_limit(
+            info.context.request, "social_login"
+        )
+        if not allowed:
+            return AuthResponse(
+                success=False,
+                message=f"Rate limit exceeded. Try again in {retry_after}s.",
+            )
         try:
             return _do_social_login(info, input)
         except ImportError:

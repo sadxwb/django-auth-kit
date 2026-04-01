@@ -4,10 +4,12 @@ import re
 
 import strawberry
 from django.contrib.auth import get_user_model
+from strawberry.types import Info
 
 from django_auth_kit.jwt.service import JWTService
 from django_auth_kit.models import UserEmail, UserMobile
 from django_auth_kit.otp.service import OTPService
+from django_auth_kit.ratelimit import check_rate_limit
 from django_auth_kit.schema.inputs import (
     LoginInput,
     RefreshTokenInput,
@@ -30,8 +32,14 @@ def _is_email(identifier: str) -> bool:
 @strawberry.type(name="Mutation")
 class AuthMutation:
     @strawberry.mutation
-    def send_otp(self, input: SendOtpInput) -> OperationResult:
+    def send_otp(self, info: Info, input: SendOtpInput) -> OperationResult:
         """Send an OTP code to the given email or mobile."""
+        allowed, retry_after = check_rate_limit(info.context.request, "send_otp")
+        if not allowed:
+            return OperationResult(
+                success=False,
+                message=f"Rate limit exceeded. Try again in {retry_after}s.",
+            )
         sent = OTPService.create_and_send(
             identifier=input.identifier,
             purpose=input.purpose,
@@ -45,8 +53,14 @@ class AuthMutation:
         return OperationResult(success=True, message="Code sent.")
 
     @strawberry.mutation
-    def verify_otp(self, input: VerifyOtpInput) -> OperationResult:
+    def verify_otp(self, info: Info, input: VerifyOtpInput) -> OperationResult:
         """Verify an OTP code."""
+        allowed, retry_after = check_rate_limit(info.context.request, "verify_otp")
+        if not allowed:
+            return OperationResult(
+                success=False,
+                message=f"Rate limit exceeded. Try again in {retry_after}s.",
+            )
         success, message = OTPService.verify(
             identifier=input.identifier,
             purpose=input.purpose,
@@ -55,12 +69,18 @@ class AuthMutation:
         return OperationResult(success=success, message=message)
 
     @strawberry.mutation
-    def register(self, input: RegisterInput) -> AuthResponse:
+    def register(self, info: Info, input: RegisterInput) -> AuthResponse:
         """
         Register a new user with a verified OTP code.
 
         Flow: send_otp -> verify_otp -> register
         """
+        allowed, retry_after = check_rate_limit(info.context.request, "register")
+        if not allowed:
+            return AuthResponse(
+                success=False,
+                message=f"Rate limit exceeded. Try again in {retry_after}s.",
+            )
         # Check OTP was verified
         if not OTPService.is_verified(input.identifier, "register"):
             return AuthResponse(
@@ -138,8 +158,14 @@ class AuthMutation:
         )
 
     @strawberry.mutation
-    def login(self, input: LoginInput) -> AuthResponse:
+    def login(self, info: Info, input: LoginInput) -> AuthResponse:
         """Login with email or mobile + password."""
+        allowed, retry_after = check_rate_limit(info.context.request, "login")
+        if not allowed:
+            return AuthResponse(
+                success=False,
+                message=f"Rate limit exceeded. Try again in {retry_after}s.",
+            )
         is_email = _is_email(input.identifier)
 
         user = None
@@ -175,8 +201,14 @@ class AuthMutation:
         )
 
     @strawberry.mutation
-    def refresh_token(self, input: RefreshTokenInput) -> AuthResponse:
+    def refresh_token(self, info: Info, input: RefreshTokenInput) -> AuthResponse:
         """Get a new token pair using a refresh token."""
+        allowed, retry_after = check_rate_limit(info.context.request, "refresh_token")
+        if not allowed:
+            return AuthResponse(
+                success=False,
+                message=f"Rate limit exceeded. Try again in {retry_after}s.",
+            )
 
         def _load_user(pk):
             return User.objects.filter(pk=pk, is_active=True).first()
