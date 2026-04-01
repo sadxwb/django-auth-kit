@@ -1,6 +1,19 @@
 # CHANGELOG
 
 
+## v0.3.0 (2026-04-01)
+
+### Features
+
+- Add rate limiting to GraphQL mutations
+  ([`704d104`](https://github.com/sadxwb/django-auth-kit/commit/704d104b1e8ecad97bfad18af7af6ba06e1f7ebc))
+
+Introduce per-IP rate limiting for key GraphQL mutations (OTP, login, register, etc.) using a
+  DRF-style rate format (e.g., "5/min"). Implement cache-based sliding window tracking and integrate
+  with Django cache framework to allow extensible configuration via `AUTH_KIT["RATE_LIMITS"]`. Add
+  tests, update documentation, and ensure compatibility with both WSGI and ASGI setups.
+
+
 ## v0.2.0 (2026-03-31)
 
 ### Features
