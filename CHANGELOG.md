@@ -1,6 +1,14 @@
 # CHANGELOG
 
 
+## v0.4.3 (2026-04-01)
+
+### Bug Fixes
+
+- Include package data for Django templates in setuptools configuration
+  ([`3ab7d10`](https://github.com/sadxwb/django-auth-kit/commit/3ab7d10020d71b56c9cb200d1da0a0736999a322))
+
+
 ## v0.4.2 (2026-04-01)
 
 ### Continuous Integration
