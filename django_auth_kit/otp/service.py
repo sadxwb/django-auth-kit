@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from importlib import import_module
 
 from django.core.cache import cache
-from django.core.mail import EmailMultiAlternatives
+from django.core.mail import send_mail
 from django.template.loader import render_to_string
 
 from django_auth_kit import settings as kit_settings
@@ -133,14 +133,13 @@ class OTPService:
         text_body = render_to_string("django_auth_kit/otp_email.txt", context)
         html_body = render_to_string("django_auth_kit/otp_email.html", context)
 
-        msg = EmailMultiAlternatives(
+        send_mail(
             subject=kit_settings.OTP_EMAIL_SUBJECT(),
-            body=text_body,
+            message=text_body,
             from_email=kit_settings.OTP_EMAIL_FROM(),
-            to=[email],
+            recipient_list=[email],
+            html_message=html_body,
         )
-        msg.attach_alternative(html_body, "text/html")
-        msg.send(fail_silently=False)
 
     @staticmethod
     def _send_sms(mobile: str, otp: str, purpose: str) -> None:

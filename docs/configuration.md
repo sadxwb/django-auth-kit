@@ -43,7 +43,7 @@ Every setting has a sensible default. You only need to override what you want to
 | `OTP_EMAIL_SUBJECT` | `str` | `"Your verification code"` | Subject line for OTP emails |
 | `OTP_EMAIL_FROM` | `str` | `DEFAULT_FROM_EMAIL` | Sender address for OTP emails |
 
-OTP emails are sent using Django's built-in email backend. Configure `EMAIL_BACKEND`, `EMAIL_HOST`, etc. in your Django settings as usual.
+OTP emails are sent via Django's `send_mail()`, which respects Django's `EMAIL_BACKEND` setting. To use a provider like Microsoft 365 or Amazon SES, install the appropriate Django email backend package (e.g. `django-o365-mail`, `django-ses`) and configure `EMAIL_BACKEND` in your Django settings.
 
 ## Rate Limiting
 
