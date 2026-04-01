@@ -50,6 +50,9 @@ dev = [
 [tool.setuptools.packages.find]
 include = ["django_auth_kit*"]
 
+[tool.setuptools.package-data]
+django_auth_kit = ["templates/**/*.txt", "templates/**/*.html"]
+
 [tool.pytest.ini_options]
 pythonpath = ["."]
 
