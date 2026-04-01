@@ -1,6 +1,23 @@
 # CHANGELOG
 
 
+## v0.4.1 (2026-04-01)
+
+### Bug Fixes
+
+- Replace direct `info.context.request` access with `get_request` util
+  ([`26ba693`](https://github.com/sadxwb/django-auth-kit/commit/26ba6935b431352a605d176b72c0a75b1a6a863e))
+
+Simplify request access logic in GraphQL mutations by replacing direct calls to
+  `info.context.request` with the reusable utility function `get_request`. Ensure consistency and
+  improve maintainability across WSGI and ASGI environments.
+
+### Continuous Integration
+
+- Update Read the Docs config to use Python 3.13 and improve formatting
+  ([`ca82d09`](https://github.com/sadxwb/django-auth-kit/commit/ca82d0951c83057cc6f3d8758bd882a47b9f9cf5))
+
+
 ## v0.4.0 (2026-04-01)
 
 ### Features
