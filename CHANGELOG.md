@@ -1,6 +1,19 @@
 # CHANGELOG
 
 
+## v0.4.0 (2026-04-01)
+
+### Features
+
+- Add documentation site with MkDocs and support for Read the Docs
+  ([`fb24ffd`](https://github.com/sadxwb/django-auth-kit/commit/fb24ffdc525cfc4425aeb7c0e9ee9c4f7dc5cbfb))
+
+Introduce a documentation site using MkDocs with the Material theme. Add configuration files
+  (`mkdocs.yml`, `.readthedocs.yaml`) and initial documentation pages (e.g., `getting-started.md`,
+  `index.md`). Include installation requirements and setup guides, covering WSGI, ASGI, and Django
+  Channels configurations. Update pip dependencies and lockfile to include MkDocs support.
+
+
 ## v0.3.0 (2026-04-01)
 
 ### Features
