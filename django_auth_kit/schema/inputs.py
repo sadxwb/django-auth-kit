@@ -51,12 +51,6 @@ class ForgotPasswordInput:
 
 
 @strawberry.input
-class UpdateProfileInput:
-    first_name: str | None = None
-    last_name: str | None = None
-
-
-@strawberry.input
 class SocialLoginInput:
     provider: str
     access_token: str | None = None

@@ -4,8 +4,37 @@ import strawberry
 from asgiref.sync import sync_to_async
 from strawberry.types import Info
 
-from django_auth_kit.schema.types import UserEmailType, UserMobileType, UserType
+from django.db import models
+from django.db.models.fields.files import FieldFile
+from strawberry_django.fields.types import DjangoFileType, DjangoImageType
+
+from django_auth_kit.schema.types import (
+    UserEmailType,
+    UserMobileType,
+    UserType,
+    get_profile_fields,
+)
 from django_auth_kit.schema.utils import get_authenticated_user
+
+
+def _file_to_type(field_file: FieldFile, field: models.Field) -> DjangoFileType | DjangoImageType | None:
+    if not field_file:
+        return None
+    if isinstance(field, models.ImageField):
+        return DjangoImageType(
+            name=field_file.name,
+            path=field_file.name,
+            size=field_file.size,
+            url=field_file.url,
+            width=getattr(field_file, "width", 0),
+            height=getattr(field_file, "height", 0),
+        )
+    return DjangoFileType(
+        name=field_file.name,
+        path=field_file.name,
+        size=field_file.size,
+        url=field_file.url,
+    )
 
 
 def _user_to_type(user) -> UserType:
@@ -28,14 +57,15 @@ def _user_to_type(user) -> UserType:
         for m in user.mobiles.all()
     ]
 
-    return UserType(
-        id=strawberry.ID(str(user.pk)),
-        username=user.username,
-        first_name=user.first_name,
-        last_name=user.last_name,
-        emails=emails,
-        mobiles=mobiles,
-    )
+    kwargs: dict = {"id": strawberry.ID(str(user.pk)), "emails": emails, "mobiles": mobiles}
+    for field_name in get_profile_fields():
+        field = user._meta.get_field(field_name)
+        if isinstance(field, models.FileField):
+            kwargs[field_name] = _file_to_type(getattr(user, field_name), field)
+        else:
+            kwargs[field_name] = getattr(user, field_name)
+
+    return UserType(**kwargs)
 
 
 @strawberry.type(name="Query")
