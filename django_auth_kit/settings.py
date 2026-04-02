@@ -98,6 +98,14 @@ def RATE_LIMITS():
     )
 
 
+# --- User Profile Fields ---
+
+
+def EXTRA_USER_PROFILE_FIELDS():
+    """Additional user model fields to include alongside the defaults."""
+    return get_setting("EXTRA_USER_PROFILE_FIELDS", [])
+
+
 # --- Email ---
 
 

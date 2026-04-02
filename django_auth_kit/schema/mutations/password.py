@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 
 import strawberry
+from asgiref.sync import sync_to_async
 from strawberry.types import Info
 
 from django_auth_kit.models import UserEmail, UserMobile
@@ -23,7 +24,7 @@ def _is_email(identifier: str) -> bool:
 @strawberry.type(name="Mutation")
 class PasswordMutation:
     @strawberry.mutation
-    def change_password(
+    async def change_password(
         self, info: Info, input: ChangePasswordInput
     ) -> OperationResult:
         """Change password for the authenticated user."""
@@ -53,15 +54,17 @@ class PasswordMutation:
             )
 
         user.set_password(input.new_password1)
-        user.save(update_fields=["password"])
+        await user.asave(update_fields=["password"])
         return OperationResult(success=True, message="Password changed successfully.")
 
     @strawberry.mutation
-    def forgot_password(self, info: Info, input: ForgotPasswordInput) -> OperationResult:
+    async def forgot_password(
+        self, info: Info, input: ForgotPasswordInput
+    ) -> OperationResult:
         """
         Reset password using a verified OTP.
 
-        Flow: send_otp(purpose="forgot_password") -> verify_otp -> forgot_password
+        Flow: send_otp -> verify_otp -> forgot_password
         """
         allowed, retry_after = check_rate_limit(
             get_request(info), "forgot_password"
@@ -71,7 +74,7 @@ class PasswordMutation:
                 success=False,
                 message=f"Rate limit exceeded. Try again in {retry_after}s.",
             )
-        if not OTPService.is_verified(input.identifier, "forgot_password"):
+        if not OTPService.is_verified(input.identifier):
             return OperationResult(
                 success=False, message="OTP not verified. Please verify first."
             )
@@ -89,32 +92,31 @@ class PasswordMutation:
         user = None
 
         if is_email:
-            record = (
+            record = await (
                 UserEmail.objects.filter(email=input.identifier, is_primary=True)
                 .select_related("user")
-                .first()
+                .afirst()
             )
             if record:
                 user = record.user
         else:
-            record = (
+            record = await (
                 UserMobile.objects.filter(mobile=input.identifier, is_primary=True)
                 .select_related("user")
-                .first()
+                .afirst()
             )
             if record:
                 user = record.user
 
         if user is None:
-            # Silently ignore as per spec (don't reveal if account exists)
-            OTPService.clear_verified(input.identifier, "forgot_password")
+            OTPService.clear_verified(input.identifier)
             return OperationResult(
                 success=True,
                 message="If the account exists, the password has been reset.",
             )
 
         user.set_password(input.new_password1)
-        user.save(update_fields=["password"])
-        OTPService.clear_verified(input.identifier, "forgot_password")
+        await user.asave(update_fields=["password"])
+        OTPService.clear_verified(input.identifier)
 
         return OperationResult(success=True, message="Password reset successfully.")

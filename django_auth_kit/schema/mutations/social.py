@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import strawberry
+from asgiref.sync import sync_to_async
 from strawberry.types import Info
 
 from django_auth_kit.ratelimit import check_rate_limit
@@ -12,7 +13,7 @@ from django_auth_kit.schema.types import AuthResponse
 @strawberry.type(name="Mutation")
 class SocialMutation:
     @strawberry.mutation
-    def social_login(self, info: Info, input: SocialLoginInput) -> AuthResponse:
+    async def social_login(self, info: Info, input: SocialLoginInput) -> AuthResponse:
         """
         Authenticate via a social provider using a token obtained client-side.
 
@@ -36,7 +37,7 @@ class SocialMutation:
                 message=f"Rate limit exceeded. Try again in {retry_after}s.",
             )
         try:
-            return _do_social_login(info, input)
+            return await sync_to_async(_do_social_login)(info, input)
         except ImportError:
             return AuthResponse(
                 success=False,

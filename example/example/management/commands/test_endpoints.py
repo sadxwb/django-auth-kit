@@ -98,9 +98,9 @@ class Command(BaseCommand):
         )
         return json.loads(resp.content)
 
-    def _read_otp(self, identifier, purpose):
+    def _read_otp(self, identifier):
         """Read OTP directly from cache (same process)."""
-        return cache.get(f"authkit:otp:{purpose}:{identifier}")
+        return cache.get(f"authkit:otp:{identifier}")
 
     def _check(self, name, data, path, expected_value):
         """Navigate a dotted path in data and assert the value."""
@@ -133,19 +133,19 @@ class Command(BaseCommand):
                 sendOtp(input: $input) { success message }
             }
             """,
-            {"input": {"identifier": EMAIL, "purpose": "register", "channel": "email"}},
+            {"input": {"identifier": EMAIL}},
         )
         self._check("sendOtp (register)", data, "data.sendOtp.success", True)
 
     def test_verify_otp_register(self):
-        otp = self._read_otp(EMAIL, "register")
+        otp = self._read_otp(EMAIL)
         data = self._gql(
             """
             mutation($input: VerifyOtpInput!) {
                 verifyOtp(input: $input) { success message }
             }
             """,
-            {"input": {"identifier": EMAIL, "purpose": "register", "code": otp}},
+            {"input": {"identifier": EMAIL, "code": otp}},
         )
         self._check("verifyOtp (register)", data, "data.verifyOtp.success", True)
 
@@ -163,8 +163,6 @@ class Command(BaseCommand):
             {
                 "input": {
                     "identifier": EMAIL,
-                    "channel": "email",
-                    "code": "000000",
                     "password1": PASSWORD,
                     "password2": PASSWORD,
                     "firstName": "Test",
@@ -280,31 +278,19 @@ class Command(BaseCommand):
                 sendOtp(input: $input) { success message }
             }
             """,
-            {
-                "input": {
-                    "identifier": EMAIL,
-                    "purpose": "forgot_password",
-                    "channel": "email",
-                }
-            },
+            {"input": {"identifier": EMAIL}},
         )
         self._check("sendOtp (forgot_password)", data, "data.sendOtp.success", True)
 
     def test_verify_otp_forgot_password(self):
-        otp = self._read_otp(EMAIL, "forgot_password")
+        otp = self._read_otp(EMAIL)
         data = self._gql(
             """
             mutation($input: VerifyOtpInput!) {
                 verifyOtp(input: $input) { success message }
             }
             """,
-            {
-                "input": {
-                    "identifier": EMAIL,
-                    "purpose": "forgot_password",
-                    "code": otp,
-                }
-            },
+            {"input": {"identifier": EMAIL, "code": otp}},
         )
         self._check(
             "verifyOtp (forgot_password)", data, "data.verifyOtp.success", True
@@ -369,7 +355,7 @@ class Command(BaseCommand):
 
     def test_register_duplicate(self):
         # Force OTP verified state so register can proceed to uniqueness check
-        cache.set(f"authkit:otp_verified:register:{EMAIL}", True, 300)
+        cache.set(f"authkit:otp_verified:{EMAIL}", True, 300)
         data = self._gql(
             """
             mutation($input: RegisterInput!) {
@@ -379,8 +365,6 @@ class Command(BaseCommand):
             {
                 "input": {
                     "identifier": EMAIL,
-                    "channel": "email",
-                    "code": "000000",
                     "password1": PASSWORD,
                     "password2": PASSWORD,
                 }
@@ -392,7 +376,6 @@ class Command(BaseCommand):
 
     def test_send_otp_cooldown(self):
         # Set cooldown in settings to test rate limiting
-        from django_auth_kit import settings as kit_settings
         from django.conf import settings
 
         original = settings.AUTH_KIT.get("OTP_COOLDOWN", 0)
@@ -405,13 +388,7 @@ class Command(BaseCommand):
                 sendOtp(input: $input) { success message }
             }
             """,
-            {
-                "input": {
-                    "identifier": "cooldown@example.com",
-                    "purpose": "register",
-                    "channel": "email",
-                }
-            },
+            {"input": {"identifier": "cooldown@example.com"}},
         )
         # Second should be rate-limited
         data = self._gql(
@@ -420,13 +397,7 @@ class Command(BaseCommand):
                 sendOtp(input: $input) { success message }
             }
             """,
-            {
-                "input": {
-                    "identifier": "cooldown@example.com",
-                    "purpose": "register",
-                    "channel": "email",
-                }
-            },
+            {"input": {"identifier": "cooldown@example.com"}},
         )
         self._check("sendOtp (cooldown)", data, "data.sendOtp.success", False)
 
@@ -493,13 +464,7 @@ class Command(BaseCommand):
                 sendOtp(input: $input) { success message }
             }
             """,
-            {
-                "input": {
-                    "identifier": "ratelimit@example.com",
-                    "purpose": "register",
-                    "channel": "email",
-                }
-            },
+            {"input": {"identifier": "ratelimit@example.com"}},
         )
 
         # Second should be rate-limited
@@ -509,13 +474,7 @@ class Command(BaseCommand):
                 sendOtp(input: $input) { success message }
             }
             """,
-            {
-                "input": {
-                    "identifier": "ratelimit2@example.com",
-                    "purpose": "register",
-                    "channel": "email",
-                }
-            },
+            {"input": {"identifier": "ratelimit2@example.com"}},
         )
         self._check("sendOtp (rate limited)", data, "data.sendOtp.success", False)
 

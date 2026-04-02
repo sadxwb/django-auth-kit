@@ -10,7 +10,7 @@ All mutations are rate-limited per client IP. When a rate limit is exceeded, the
 
 ### `me`
 
-Returns the authenticated user's profile.
+Returns the authenticated user's profile. The available fields depend on the configured profile fields (see [User Profile Fields](configuration.md#user-profile-fields)).
 
 **Auth required:** Yes
 
@@ -18,7 +18,6 @@ Returns the authenticated user's profile.
 query {
   me {
     id
-    username
     firstName
     lastName
     emails {
@@ -99,7 +98,7 @@ mutation {
     }
     user {
       id
-      username
+      firstName
     }
   }
 }
@@ -123,7 +122,7 @@ mutation {
     }
     user {
       id
-      username
+      firstName
     }
   }
 }
@@ -189,7 +188,7 @@ mutation {
 
 ### `updateProfile`
 
-Update the authenticated user's profile.
+Update the authenticated user's profile. Available input fields and returned user fields depend on the configured profile fields (see [User Profile Fields](configuration.md#user-profile-fields)).
 
 **Auth required:** Yes
 
@@ -230,7 +229,7 @@ mutation {
     }
     user {
       id
-      username
+      firstName
     }
   }
 }

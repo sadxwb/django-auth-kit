@@ -8,8 +8,12 @@ from django.core.cache import cache
 from django.core.mail import send_mail
 from django.template.loader import render_to_string
 
+import re
+
 from django_auth_kit import settings as kit_settings
 from django_auth_kit.otp.backends.base import BaseSmsBackend
+
+_EMAIL_RE = re.compile(r"^[^@]+@[^@]+\.[^@]+$")
 
 
 @dataclass
@@ -26,16 +30,20 @@ def _get_sms_backend() -> BaseSmsBackend:
     return backend_cls()
 
 
-def _cache_key(identifier: str, purpose: str) -> str:
-    return f"authkit:otp:{purpose}:{identifier}"
+def _cache_key(identifier: str) -> str:
+    return f"authkit:otp:{identifier}"
 
 
-def _attempts_key(identifier: str, purpose: str) -> str:
-    return f"authkit:otp_attempts:{purpose}:{identifier}"
+def _attempts_key(identifier: str) -> str:
+    return f"authkit:otp_attempts:{identifier}"
 
 
-def _cooldown_key(identifier: str, purpose: str) -> str:
-    return f"authkit:otp_cooldown:{purpose}:{identifier}"
+def _cooldown_key(identifier: str) -> str:
+    return f"authkit:otp_cooldown:{identifier}"
+
+
+def _verified_key(identifier: str) -> str:
+    return f"authkit:otp_verified:{identifier}"
 
 
 class OTPService:
@@ -47,59 +55,52 @@ class OTPService:
         return "".join(str(secrets.randbelow(10)) for _ in range(length))
 
     @classmethod
-    def create_and_send(
-        cls,
-        identifier: str,
-        purpose: str,
-        channel: str = "email",
-    ) -> bool:
+    def create_and_send(cls, identifier: str) -> bool:
         """
-        Generate an OTP, store it, and send via the specified channel.
+        Generate an OTP, store it, and send via email or SMS.
+
+        Channel is auto-detected from the identifier format.
 
         Args:
             identifier: email address or mobile number
-            purpose: e.g. "register", "forgot_password", "verify"
-            channel: "email" or "sms"
 
         Returns:
             True if sent successfully.
         """
-        cooldown_k = _cooldown_key(identifier, purpose)
+        cooldown_k = _cooldown_key(identifier)
         if cache.get(cooldown_k):
             return False  # cooldown still active
 
         otp = cls.generate()
         timeout = kit_settings.OTP_TIMEOUT()
 
-        cache.set(_cache_key(identifier, purpose), otp, timeout)
-        cache.delete(_attempts_key(identifier, purpose))
+        cache.set(_cache_key(identifier), otp, timeout)
+        cache.delete(_attempts_key(identifier))
         cache.set(cooldown_k, True, kit_settings.OTP_COOLDOWN())
 
-        if channel == "email":
-            cls._send_email(identifier, otp, purpose)
-        elif channel == "sms":
-            cls._send_sms(identifier, otp, purpose)
+        if _EMAIL_RE.match(identifier):
+            cls._send_email(identifier, otp)
         else:
-            raise ValueError(f"Unknown channel: {channel}")
+            cls._send_sms(identifier, otp)
 
         return True
 
     @classmethod
-    def verify(cls, identifier: str, purpose: str, code: str) -> tuple[bool, str]:
+    def verify(cls, identifier: str, code: str) -> tuple[bool, str]:
         """
         Verify an OTP code.
 
         Returns:
             (success, message)
         """
-        attempts_k = _attempts_key(identifier, purpose)
+        attempts_k = _attempts_key(identifier)
         max_attempts = kit_settings.OTP_MAX_ATTEMPTS()
         attempts = cache.get(attempts_k, 0)
 
         if attempts >= max_attempts:
             return False, "Too many attempts. Please request a new code."
 
-        stored = cache.get(_cache_key(identifier, purpose))
+        stored = cache.get(_cache_key(identifier))
         if stored is None:
             return False, "Code expired or not found. Please request a new one."
 
@@ -107,29 +108,26 @@ class OTPService:
             cache.set(attempts_k, attempts + 1, kit_settings.OTP_TIMEOUT())
             return False, "Invalid code."
 
-        # Mark as verified (keep in cache briefly so register/forgot-password can check)
-        verified_key = f"authkit:otp_verified:{purpose}:{identifier}"
-        cache.set(verified_key, True, kit_settings.OTP_TIMEOUT())
-        cache.delete(_cache_key(identifier, purpose))
+        # Mark as verified
+        cache.set(_verified_key(identifier), True, kit_settings.OTP_TIMEOUT())
+        cache.delete(_cache_key(identifier))
         cache.delete(attempts_k)
         return True, "Code verified."
 
     @classmethod
-    def is_verified(cls, identifier: str, purpose: str) -> bool:
-        """Check if identifier has a verified OTP for the given purpose."""
-        verified_key = f"authkit:otp_verified:{purpose}:{identifier}"
-        return bool(cache.get(verified_key))
+    def is_verified(cls, identifier: str) -> bool:
+        """Check if identifier has been verified via OTP."""
+        return bool(cache.get(_verified_key(identifier)))
 
     @classmethod
-    def clear_verified(cls, identifier: str, purpose: str) -> None:
-        verified_key = f"authkit:otp_verified:{purpose}:{identifier}"
-        cache.delete(verified_key)
+    def clear_verified(cls, identifier: str) -> None:
+        cache.delete(_verified_key(identifier))
 
     # --- Delivery methods ---
 
     @staticmethod
-    def _send_email(email: str, otp: str, purpose: str) -> None:
-        context = {"otp": otp, "purpose": purpose, "email": email}
+    def _send_email(email: str, otp: str) -> None:
+        context = {"otp": otp, "email": email}
         text_body = render_to_string("django_auth_kit/otp_email.txt", context)
         html_body = render_to_string("django_auth_kit/otp_email.html", context)
 
@@ -142,7 +140,7 @@ class OTPService:
         )
 
     @staticmethod
-    def _send_sms(mobile: str, otp: str, purpose: str) -> None:
+    def _send_sms(mobile: str, otp: str) -> None:
         body = f"Your verification code is: {otp}"
         message = SmsMessage(body=body, to=[mobile])
         backend = _get_sms_backend()

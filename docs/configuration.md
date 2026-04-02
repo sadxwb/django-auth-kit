@@ -45,6 +45,24 @@ Every setting has a sensible default. You only need to override what you want to
 
 OTP emails are sent via Django's `send_mail()`, which respects Django's `EMAIL_BACKEND` setting. To use a provider like Microsoft 365 or Amazon SES, install the appropriate Django email backend package (e.g. `django-o365-mail`, `django-ses`) and configure `EMAIL_BACKEND` in your Django settings.
 
+## User Profile Fields
+
+By default, the profile query (`me`) and profile mutation expose `id`, `first_name`, `last_name`, `emails`, and `mobiles`. The `id`, `first_name`, `last_name`, `emails`, and `mobiles` fields are always included.
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `EXTRA_USER_PROFILE_FIELDS` | `list[str]` | `[]` | Additional user model fields alongside the defaults |
+
+Field types are auto-detected from the Django user model (e.g. `IntegerField` → `Int`, `DateTimeField` → `DateTime`, `ImageField` → `DjangoImageType`/`Upload`).
+
+```python
+AUTH_KIT = {
+    "EXTRA_USER_PROFILE_FIELDS": ["username", "date_joined"],
+}
+```
+
+This affects both the `me` query return type and the `updateProfile` mutation input.
+
 ## Rate Limiting
 
 Rate limiting uses DRF-style rate strings and is applied per client IP via Django's cache framework. Every mutation has a sensible default; set a key to `None` to disable limiting for that action.
