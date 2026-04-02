@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import strawberry
+from asgiref.sync import sync_to_async
 from strawberry.types import Info
 
 from django_auth_kit.schema.types import UserEmailType, UserMobileType, UserType
@@ -40,6 +41,6 @@ def _user_to_type(user) -> UserType:
 @strawberry.type(name="Query")
 class UserProfileQuery:
     @strawberry.field
-    def me(self, info: Info) -> UserType:
+    async def me(self, info: Info) -> UserType:
         user = get_authenticated_user(info)
-        return _user_to_type(user)
+        return await sync_to_async(_user_to_type)(user)

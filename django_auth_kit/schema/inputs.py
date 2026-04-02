@@ -6,22 +6,17 @@ import strawberry
 @strawberry.input
 class SendOtpInput:
     identifier: str  # email or mobile
-    purpose: str  # "register", "forgot_password"
-    channel: str = "email"  # "email" or "sms"
 
 
 @strawberry.input
 class VerifyOtpInput:
     identifier: str
-    purpose: str
     code: str
 
 
 @strawberry.input
 class RegisterInput:
     identifier: str  # email or mobile
-    channel: str  # "email" or "sms"
-    code: str  # verified OTP code
     password1: str
     password2: str
     username: str | None = None
@@ -50,7 +45,7 @@ class ChangePasswordInput:
 @strawberry.input
 class ForgotPasswordInput:
     identifier: str  # email or mobile
-    code: str  # verified OTP code
+    code: str  # OTP code (verified inline if needed)
     new_password1: str
     new_password2: str
 

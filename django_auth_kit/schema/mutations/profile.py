@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import strawberry
+from asgiref.sync import sync_to_async
 from strawberry.types import Info
 
 from django_auth_kit.schema.inputs import UpdateProfileInput
@@ -12,7 +13,9 @@ from django_auth_kit.schema.utils import get_current_user
 @strawberry.type(name="Mutation")
 class ProfileMutation:
     @strawberry.mutation
-    def update_profile(self, info: Info, input: UpdateProfileInput) -> AuthResponse:
+    async def update_profile(
+        self, info: Info, input: UpdateProfileInput
+    ) -> AuthResponse:
         """Update the authenticated user's profile."""
         user = get_current_user(info)
         if not user.is_authenticated:
@@ -27,10 +30,10 @@ class ProfileMutation:
             update_fields.append("last_name")
 
         if update_fields:
-            user.save(update_fields=update_fields)
+            await user.asave(update_fields=update_fields)
 
         return AuthResponse(
             success=True,
             message="Profile updated.",
-            user=_user_to_type(user),
+            user=await sync_to_async(_user_to_type)(user),
         )

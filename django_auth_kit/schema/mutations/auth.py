@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 
 import strawberry
+from asgiref.sync import sync_to_async
 from django.contrib.auth import get_user_model
 from strawberry.types import Info
 
@@ -33,7 +34,7 @@ def _is_email(identifier: str) -> bool:
 @strawberry.type(name="Mutation")
 class AuthMutation:
     @strawberry.mutation
-    def send_otp(self, info: Info, input: SendOtpInput) -> OperationResult:
+    async def send_otp(self, info: Info, input: SendOtpInput) -> OperationResult:
         """Send an OTP code to the given email or mobile."""
         allowed, retry_after = check_rate_limit(get_request(info), "send_otp")
         if not allowed:
@@ -41,10 +42,8 @@ class AuthMutation:
                 success=False,
                 message=f"Rate limit exceeded. Try again in {retry_after}s.",
             )
-        sent = OTPService.create_and_send(
+        sent = await sync_to_async(OTPService.create_and_send)(
             identifier=input.identifier,
-            purpose=input.purpose,
-            channel=input.channel,
         )
         if not sent:
             return OperationResult(
@@ -54,7 +53,7 @@ class AuthMutation:
         return OperationResult(success=True, message="Code sent.")
 
     @strawberry.mutation
-    def verify_otp(self, info: Info, input: VerifyOtpInput) -> OperationResult:
+    async def verify_otp(self, info: Info, input: VerifyOtpInput) -> OperationResult:
         """Verify an OTP code."""
         allowed, retry_after = check_rate_limit(get_request(info), "verify_otp")
         if not allowed:
@@ -64,15 +63,14 @@ class AuthMutation:
             )
         success, message = OTPService.verify(
             identifier=input.identifier,
-            purpose=input.purpose,
             code=input.code,
         )
         return OperationResult(success=success, message=message)
 
     @strawberry.mutation
-    def register(self, info: Info, input: RegisterInput) -> AuthResponse:
+    async def register(self, info: Info, input: RegisterInput) -> AuthResponse:
         """
-        Register a new user with a verified OTP code.
+        Register a new user with a verified OTP.
 
         Flow: send_otp -> verify_otp -> register
         """
@@ -83,7 +81,7 @@ class AuthMutation:
                 message=f"Rate limit exceeded. Try again in {retry_after}s.",
             )
         # Check OTP was verified
-        if not OTPService.is_verified(input.identifier, "register"):
+        if not OTPService.is_verified(input.identifier):
             return AuthResponse(
                 success=False, message="OTP not verified. Please verify first."
             )
@@ -100,16 +98,16 @@ class AuthMutation:
 
         # Check uniqueness
         if is_email:
-            if UserEmail.objects.filter(
+            if await UserEmail.objects.filter(
                 email=input.identifier, is_verified=True
-            ).exists():
+            ).aexists():
                 return AuthResponse(
                     success=False, message="This email is already registered."
                 )
         else:
-            if UserMobile.objects.filter(
+            if await UserMobile.objects.filter(
                 mobile=input.identifier, is_verified=True
-            ).exists():
+            ).aexists():
                 return AuthResponse(
                     success=False, message="This mobile is already registered."
                 )
@@ -117,49 +115,50 @@ class AuthMutation:
         # Determine username
         username = input.username or input.identifier
 
-        if User.objects.filter(username=username).exists():
+        if await User.objects.filter(username=username).aexists():
             return AuthResponse(
                 success=False, message="This username is already taken."
             )
 
         # Create user
-        user = User.objects.create_user(
-            username=username,
-            password=input.password1,
-            first_name=input.first_name or "",
-            last_name=input.last_name or "",
-        )
+        create_kwargs = {
+            "username": username,
+            "password": input.password1,
+            "first_name": input.first_name or "",
+            "last_name": input.last_name or "",
+        }
+        if is_email:
+            create_kwargs["email"] = input.identifier
+        user = await sync_to_async(User.objects.create_user)(**create_kwargs)
 
         # Create the email/mobile record
         if is_email:
-            UserEmail.objects.create(
+            await UserEmail.objects.acreate(
                 user=user,
                 email=input.identifier,
                 is_verified=True,
                 is_primary=True,
             )
-            user.email = input.identifier
-            user.save(update_fields=["email"])
         else:
-            UserMobile.objects.create(
+            await UserMobile.objects.acreate(
                 user=user,
                 mobile=input.identifier,
                 is_verified=True,
                 is_primary=True,
             )
 
-        OTPService.clear_verified(input.identifier, "register")
+        OTPService.clear_verified(input.identifier)
         tokens = JWTService.create_token_pair(user)
 
         return AuthResponse(
             success=True,
             message="Registration successful.",
             tokens=AuthTokens(**tokens),
-            user=_user_to_type(user),
+            user=await sync_to_async(_user_to_type)(user),
         )
 
     @strawberry.mutation
-    def login(self, info: Info, input: LoginInput) -> AuthResponse:
+    async def login(self, info: Info, input: LoginInput) -> AuthResponse:
         """Login with email or mobile + password."""
         allowed, retry_after = check_rate_limit(get_request(info), "login")
         if not allowed:
@@ -171,18 +170,18 @@ class AuthMutation:
 
         user = None
         if is_email:
-            record = (
+            record = await (
                 UserEmail.objects.filter(email=input.identifier, is_primary=True)
                 .select_related("user")
-                .first()
+                .afirst()
             )
             if record:
                 user = record.user
         else:
-            record = (
+            record = await (
                 UserMobile.objects.filter(mobile=input.identifier, is_primary=True)
                 .select_related("user")
-                .first()
+                .afirst()
             )
             if record:
                 user = record.user
@@ -198,11 +197,11 @@ class AuthMutation:
             success=True,
             message="Login successful.",
             tokens=AuthTokens(**tokens),
-            user=_user_to_type(user),
+            user=await sync_to_async(_user_to_type)(user),
         )
 
     @strawberry.mutation
-    def refresh_token(self, info: Info, input: RefreshTokenInput) -> AuthResponse:
+    async def refresh_token(self, info: Info, input: RefreshTokenInput) -> AuthResponse:
         """Get a new token pair using a refresh token."""
         allowed, retry_after = check_rate_limit(get_request(info), "refresh_token")
         if not allowed:
@@ -211,6 +210,7 @@ class AuthMutation:
                 message=f"Rate limit exceeded. Try again in {retry_after}s.",
             )
 
+        @sync_to_async
         def _load_user(pk):
             return User.objects.filter(pk=pk, is_active=True).first()
 
