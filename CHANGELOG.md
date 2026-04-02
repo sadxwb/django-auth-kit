@@ -1,6 +1,27 @@
 # CHANGELOG
 
 
+## v0.4.4 (2026-04-02)
+
+### Refactoring
+
+- Dynamically construct profile schema based on configurable fields
+  ([`0f9163c`](https://github.com/sadxwb/django-auth-kit/commit/0f9163c34bbd18797136426b4427f70b14202d3f))
+
+Introduce mechanisms to dynamically generate GraphQL types and input fields for user profiles based
+  on configurable `EXTRA_USER_PROFILE_FIELDS`. Refactor the `updateProfile` mutation to support file
+  uploads and additional fields. Update documentation to reflect these changes and clarify field
+  configuration options.
+
+- Simplify OTP logic and adopt async Django methods
+  ([`ff64cc4`](https://github.com/sadxwb/django-auth-kit/commit/ff64cc4508a446ffcaae95f2bbb0d325b76f456a))
+
+Streamline OTP management by eliminating the "purpose" parameter, deducing delivery channels
+  directly from identifiers, and standardizing cache key formats. Refactor GraphQL mutations and
+  services to use Django async methods (`asave`, `afirst`, etc.) for improved performance in async
+  environments. Update tests and remove redundant fields from request payloads.
+
+
 ## v0.4.3 (2026-04-01)
 
 ### Bug Fixes
