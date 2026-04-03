@@ -2,16 +2,20 @@ from __future__ import annotations
 
 import strawberry
 
+from django_auth_kit.schema.enums import OtpPurpose
+
 
 @strawberry.input
 class SendOtpInput:
     identifier: str  # email or mobile
+    purpose: OtpPurpose
 
 
 @strawberry.input
 class VerifyOtpInput:
     identifier: str
     code: str
+    purpose: OtpPurpose
 
 
 @strawberry.input

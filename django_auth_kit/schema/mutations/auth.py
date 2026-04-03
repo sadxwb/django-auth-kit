@@ -11,6 +11,7 @@ from django_auth_kit.jwt.service import JWTService
 from django_auth_kit.models import UserEmail, UserMobile
 from django_auth_kit.otp.service import OTPService
 from django_auth_kit.ratelimit import check_rate_limit
+from django_auth_kit.schema.enums import OtpPurpose
 from django_auth_kit.schema.inputs import (
     LoginInput,
     RefreshTokenInput,
@@ -42,8 +43,44 @@ class AuthMutation:
                 success=False,
                 message=f"Rate limit exceeded. Try again in {retry_after}s.",
             )
+
+        purpose = input.purpose
+        is_email = _is_email(input.identifier)
+
+        # Contextual validation based on purpose
+        if purpose == OtpPurpose.REGISTER:
+            if is_email:
+                if await UserEmail.objects.filter(
+                    email=input.identifier, is_verified=True
+                ).aexists():
+                    return OperationResult(
+                        success=False,
+                        message="This email is already registered.",
+                    )
+            else:
+                if await UserMobile.objects.filter(
+                    mobile=input.identifier, is_verified=True
+                ).aexists():
+                    return OperationResult(
+                        success=False,
+                        message="This mobile is already registered.",
+                    )
+        elif purpose == OtpPurpose.FORGOT_PASSWORD:
+            # Don't reveal whether the account exists
+            if is_email:
+                exists = await UserEmail.objects.filter(
+                    email=input.identifier, is_primary=True
+                ).aexists()
+            else:
+                exists = await UserMobile.objects.filter(
+                    mobile=input.identifier, is_primary=True
+                ).aexists()
+            if not exists:
+                return OperationResult(success=True, message="Code sent.")
+
         sent = await sync_to_async(OTPService.create_and_send)(
             identifier=input.identifier,
+            purpose=purpose.value,
         )
         if not sent:
             return OperationResult(
@@ -64,6 +101,7 @@ class AuthMutation:
         success, message = OTPService.verify(
             identifier=input.identifier,
             code=input.code,
+            purpose=input.purpose.value,
         )
         return OperationResult(success=success, message=message)
 
@@ -80,8 +118,8 @@ class AuthMutation:
                 success=False,
                 message=f"Rate limit exceeded. Try again in {retry_after}s.",
             )
-        # Check OTP was verified
-        if not OTPService.is_verified(input.identifier):
+        # Check OTP was verified for registration
+        if not OTPService.is_verified(input.identifier, purpose="register"):
             return AuthResponse(
                 success=False, message="OTP not verified. Please verify first."
             )
@@ -147,7 +185,7 @@ class AuthMutation:
                 is_primary=True,
             )
 
-        OTPService.clear_verified(input.identifier)
+        OTPService.clear_verified(input.identifier, purpose="register")
         tokens = JWTService.create_token_pair(user)
 
         return AuthResponse(
