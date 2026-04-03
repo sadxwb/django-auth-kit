@@ -1,6 +1,14 @@
 # CHANGELOG
 
 
+## v0.5.0 (2026-04-03)
+
+### Features
+
+- Add purpose and uniques check
+  ([`1289cfe`](https://github.com/sadxwb/django-auth-kit/commit/1289cfe775aaf57876216fa5f7eb52caa6e77e88))
+
+
 ## v0.4.4 (2026-04-02)
 
 ### Refactoring
