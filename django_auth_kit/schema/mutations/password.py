@@ -74,7 +74,7 @@ class PasswordMutation:
                 success=False,
                 message=f"Rate limit exceeded. Try again in {retry_after}s.",
             )
-        if not OTPService.is_verified(input.identifier):
+        if not OTPService.is_verified(input.identifier, purpose="forgot_password"):
             return OperationResult(
                 success=False, message="OTP not verified. Please verify first."
             )
@@ -109,7 +109,7 @@ class PasswordMutation:
                 user = record.user
 
         if user is None:
-            OTPService.clear_verified(input.identifier)
+            OTPService.clear_verified(input.identifier, purpose="forgot_password")
             return OperationResult(
                 success=True,
                 message="If the account exists, the password has been reset.",
@@ -117,6 +117,6 @@ class PasswordMutation:
 
         user.set_password(input.new_password1)
         await user.asave(update_fields=["password"])
-        OTPService.clear_verified(input.identifier)
+        OTPService.clear_verified(input.identifier, purpose="forgot_password")
 
         return OperationResult(success=True, message="Password reset successfully.")

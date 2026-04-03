@@ -30,20 +30,20 @@ def _get_sms_backend() -> BaseSmsBackend:
     return backend_cls()
 
 
-def _cache_key(identifier: str) -> str:
-    return f"authkit:otp:{identifier}"
+def _cache_key(identifier: str, purpose: str) -> str:
+    return f"authkit:otp:{purpose}:{identifier}"
 
 
-def _attempts_key(identifier: str) -> str:
-    return f"authkit:otp_attempts:{identifier}"
+def _attempts_key(identifier: str, purpose: str) -> str:
+    return f"authkit:otp_attempts:{purpose}:{identifier}"
 
 
-def _cooldown_key(identifier: str) -> str:
-    return f"authkit:otp_cooldown:{identifier}"
+def _cooldown_key(identifier: str, purpose: str) -> str:
+    return f"authkit:otp_cooldown:{purpose}:{identifier}"
 
 
-def _verified_key(identifier: str) -> str:
-    return f"authkit:otp_verified:{identifier}"
+def _verified_key(identifier: str, purpose: str) -> str:
+    return f"authkit:otp_verified:{purpose}:{identifier}"
 
 
 class OTPService:
@@ -55,7 +55,7 @@ class OTPService:
         return "".join(str(secrets.randbelow(10)) for _ in range(length))
 
     @classmethod
-    def create_and_send(cls, identifier: str) -> bool:
+    def create_and_send(cls, identifier: str, purpose: str) -> bool:
         """
         Generate an OTP, store it, and send via email or SMS.
 
@@ -63,19 +63,20 @@ class OTPService:
 
         Args:
             identifier: email address or mobile number
+            purpose: the action this OTP is for (e.g. "register", "forgot_password")
 
         Returns:
             True if sent successfully.
         """
-        cooldown_k = _cooldown_key(identifier)
+        cooldown_k = _cooldown_key(identifier, purpose)
         if cache.get(cooldown_k):
             return False  # cooldown still active
 
         otp = cls.generate()
         timeout = kit_settings.OTP_TIMEOUT()
 
-        cache.set(_cache_key(identifier), otp, timeout)
-        cache.delete(_attempts_key(identifier))
+        cache.set(_cache_key(identifier, purpose), otp, timeout)
+        cache.delete(_attempts_key(identifier, purpose))
         cache.set(cooldown_k, True, kit_settings.OTP_COOLDOWN())
 
         if _EMAIL_RE.match(identifier):
@@ -86,21 +87,21 @@ class OTPService:
         return True
 
     @classmethod
-    def verify(cls, identifier: str, code: str) -> tuple[bool, str]:
+    def verify(cls, identifier: str, code: str, purpose: str) -> tuple[bool, str]:
         """
         Verify an OTP code.
 
         Returns:
             (success, message)
         """
-        attempts_k = _attempts_key(identifier)
+        attempts_k = _attempts_key(identifier, purpose)
         max_attempts = kit_settings.OTP_MAX_ATTEMPTS()
         attempts = cache.get(attempts_k, 0)
 
         if attempts >= max_attempts:
             return False, "Too many attempts. Please request a new code."
 
-        stored = cache.get(_cache_key(identifier))
+        stored = cache.get(_cache_key(identifier, purpose))
         if stored is None:
             return False, "Code expired or not found. Please request a new one."
 
@@ -109,19 +110,19 @@ class OTPService:
             return False, "Invalid code."
 
         # Mark as verified
-        cache.set(_verified_key(identifier), True, kit_settings.OTP_TIMEOUT())
-        cache.delete(_cache_key(identifier))
+        cache.set(_verified_key(identifier, purpose), True, kit_settings.OTP_TIMEOUT())
+        cache.delete(_cache_key(identifier, purpose))
         cache.delete(attempts_k)
         return True, "Code verified."
 
     @classmethod
-    def is_verified(cls, identifier: str) -> bool:
+    def is_verified(cls, identifier: str, purpose: str) -> bool:
         """Check if identifier has been verified via OTP."""
-        return bool(cache.get(_verified_key(identifier)))
+        return bool(cache.get(_verified_key(identifier, purpose)))
 
     @classmethod
-    def clear_verified(cls, identifier: str) -> None:
-        cache.delete(_verified_key(identifier))
+    def clear_verified(cls, identifier: str, purpose: str) -> None:
+        cache.delete(_verified_key(identifier, purpose))
 
     # --- Delivery methods ---
 
