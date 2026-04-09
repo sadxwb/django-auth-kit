@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import re
 
 import strawberry
@@ -24,6 +25,7 @@ from django_auth_kit.schema.queries import _user_to_type
 from django_auth_kit.schema.types import AuthResponse, AuthTokens, OperationResult
 
 User = get_user_model()
+logger = logging.getLogger(__name__)
 
 _EMAIL_RE = re.compile(r"^[^@]+@[^@]+\.[^@]+$")
 
@@ -248,16 +250,20 @@ class AuthMutation:
                 message=f"Rate limit exceeded. Try again in {retry_after}s.",
             )
 
-        @sync_to_async
-        def _load_user(pk):
-            return User.objects.filter(pk=pk, is_active=True).first()
-
         try:
-            tokens = JWTService.refresh_access_token(
-                input.refresh_token,
-                user_loader=_load_user,
-            )
-        except Exception:
+            payload = JWTService.decode_token(input.refresh_token)
+            if payload.get("type") != "refresh":
+                raise ValueError("Token is not a refresh token.")
+
+            user = await User.objects.filter(
+                pk=payload["sub"], is_active=True
+            ).afirst()
+            if user is None:
+                raise ValueError("User not found.")
+
+            tokens = JWTService.create_token_pair(user)
+        except Exception as e:
+            logger.warning("refresh_token failed: %s", e)
             return AuthResponse(
                 success=False,
                 message="Invalid or expired refresh token.",
