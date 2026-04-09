@@ -1,6 +1,17 @@
 # CHANGELOG
 
 
+## v0.5.1 (2026-04-09)
+
+### Bug Fixes
+
+- Refactor refresh token logic with async user lookup and improved error handling
+  ([`08831b2`](https://github.com/sadxwb/django-auth-kit/commit/08831b2e263792daac8692def0ace236a7e5cfa2))
+
+Adopt asynchronous methods for user retrieval using `afirst`, validate token type explicitly, and
+  enhance debugging with logging for token refresh failures.
+
+
 ## v0.5.0 (2026-04-03)
 
 ### Features
