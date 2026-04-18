@@ -8,7 +8,7 @@ version = "0.5.1"
 description = "A Django authentication kit with GraphQL (Strawberry), JWT, OTP, and social login support."
 readme = "README.md"
 license = {text = "MIT"}
-requires-python = ">=3.14"
+requires-python = ">=3.13"
 authors = [
     {name = "Django Auth Kit Contributors"},
 ]
@@ -20,6 +20,7 @@ classifiers = [
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
 ]
 dependencies = [
@@ -34,6 +35,7 @@ channels = [
 ]
 social = [
     "django-allauth>=64.0.0",
+    "httpx>=0.27.0",
 ]
 docs = [
     "mkdocs>=1.6",
@@ -57,7 +59,7 @@ django_auth_kit = ["templates/**/*.txt", "templates/**/*.html"]
 pythonpath = ["."]
 
 [tool.ruff]
-target-version = "py314"
+target-version = "py313"
 line-length = 88
 extend-exclude = ["migrations"]
 

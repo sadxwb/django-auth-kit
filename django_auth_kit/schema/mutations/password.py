@@ -21,13 +21,40 @@ def _is_email(identifier: str) -> bool:
     return bool(_EMAIL_RE.match(identifier))
 
 
+async def _primary_identifier_for(user) -> str | None:
+    """Return the user's primary email, else their primary mobile, else None."""
+    email_row = (
+        await UserEmail.objects.filter(user=user, is_primary=True)
+        .only("email")
+        .afirst()
+    )
+    if email_row:
+        return email_row.email
+    mobile_row = (
+        await UserMobile.objects.filter(user=user, is_primary=True)
+        .only("mobile")
+        .afirst()
+    )
+    return mobile_row.mobile if mobile_row else None
+
+
 @strawberry.type(name="Mutation")
 class PasswordMutation:
     @strawberry.mutation
     async def change_password(
         self, info: Info, input: ChangePasswordInput
     ) -> OperationResult:
-        """Change password for the authenticated user."""
+        """
+        Change password for the authenticated user.
+
+        Requires the caller to first complete an OTP challenge with
+        ``purpose=change_password`` against their own primary email (or
+        mobile, if no primary email is set). Flow:
+
+            sendOtp(identifier=me.primaryEmail, purpose=CHANGE_PASSWORD)
+            verifyOtp(identifier=me.primaryEmail, code, purpose=CHANGE_PASSWORD)
+            changePassword(oldPassword, newPassword1, newPassword2)
+        """
         allowed, retry_after = check_rate_limit(
             get_request(info), "change_password"
         )
@@ -39,6 +66,21 @@ class PasswordMutation:
         user = get_current_user(info)
         if not user.is_authenticated:
             return OperationResult(success=False, message="Authentication required.")
+
+        # Resolve the identifier bound to this user for the OTP challenge.
+        identifier = await _primary_identifier_for(user)
+        if not identifier:
+            return OperationResult(
+                success=False,
+                message="No primary email or mobile on file — cannot verify OTP.",
+            )
+
+        if not OTPService.is_verified(identifier, purpose="change_password"):
+            return OperationResult(
+                success=False,
+                message="OTP verification required. Call sendOtp and verifyOtp "
+                "with purpose CHANGE_PASSWORD first.",
+            )
 
         if not user.check_password(input.old_password):
             return OperationResult(
@@ -55,6 +97,7 @@ class PasswordMutation:
 
         user.set_password(input.new_password1)
         await user.asave(update_fields=["password"])
+        OTPService.clear_verified(identifier, purpose="change_password")
         return OperationResult(success=True, message="Password changed successfully.")
 
     @strawberry.mutation

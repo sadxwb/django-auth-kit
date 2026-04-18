@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+
 import strawberry
 from asgiref.sync import sync_to_async
 from strawberry.types import Info
@@ -8,6 +10,7 @@ from django.db import models
 from django.db.models.fields.files import FieldFile
 from strawberry_django.fields.types import DjangoFileType, DjangoImageType
 
+from django_auth_kit.models import UserEmail, UserMobile
 from django_auth_kit.schema.types import (
     UserEmailType,
     UserMobileType,
@@ -15,6 +18,8 @@ from django_auth_kit.schema.types import (
     get_profile_fields,
 )
 from django_auth_kit.schema.utils import get_authenticated_user
+
+_EMAIL_RE = re.compile(r"^[^@]+@[^@]+\.[^@]+$")
 
 
 def _file_to_type(field_file: FieldFile, field: models.Field) -> DjangoFileType | DjangoImageType | None:
@@ -74,3 +79,19 @@ class UserProfileQuery:
     async def me(self, info: Info) -> UserType:
         user = get_authenticated_user(info)
         return await sync_to_async(_user_to_type)(user)
+
+    @strawberry.field
+    async def identifier_exists(self, info: Info, identifier: str) -> bool:
+        """
+        Return True if an email or mobile is already registered.
+
+        Used by the frontend to pre-check registration / add-user forms.
+        Matches any ``UserEmail`` / ``UserMobile`` row (verified or not) so
+        admin-created accounts and in-flight registrations both count.
+        """
+        identifier = identifier.strip()
+        if not identifier:
+            return False
+        if _EMAIL_RE.match(identifier):
+            return await UserEmail.objects.filter(email__iexact=identifier).aexists()
+        return await UserMobile.objects.filter(mobile=identifier).aexists()
