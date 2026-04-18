@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "django-auth-kit"
-version = "0.5.1"
+version = "0.5.2"
 description = "A Django authentication kit with GraphQL (Strawberry), JWT, OTP, and social login support."
 readme = "README.md"
 license = {text = "MIT"}
