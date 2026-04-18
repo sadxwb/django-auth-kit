@@ -60,3 +60,10 @@ class SocialLoginInput:
     access_token: str | None = None
     id_token: str | None = None
     client_id: str | None = None
+
+
+@strawberry.input
+class AcceptInvitationInput:
+    token: str
+    password1: str
+    password2: str

@@ -79,6 +79,11 @@ def SOCIAL_PROVIDERS():
     return get_setting("SOCIAL_PROVIDERS", [])
 
 
+def SOCIAL_LOGIN_REDIRECT_URL():
+    """Frontend URL to redirect to after OAuth login."""
+    return get_setting("SOCIAL_LOGIN_REDIRECT_URL", "")
+
+
 # --- Rate Limiting ---
 
 
@@ -117,3 +122,20 @@ def OTP_EMAIL_FROM():
     return get_setting(
         "OTP_EMAIL_FROM", getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@example.com")
     )
+
+
+# --- Invitation ---
+
+
+def INVITATION_EMAIL_SUBJECT():
+    return get_setting("INVITATION_EMAIL_SUBJECT", "You've been invited")
+
+
+def INVITATION_TOKEN_MAX_AGE():
+    """Lifetime (seconds) of an invitation token. Default 7 days."""
+    return get_setting("INVITATION_TOKEN_MAX_AGE", 60 * 60 * 24 * 7)
+
+
+def INVITATION_REDIRECT_URL():
+    """Frontend URL the invitation link points at (token is appended as ?token=)."""
+    return get_setting("INVITATION_REDIRECT_URL", "")

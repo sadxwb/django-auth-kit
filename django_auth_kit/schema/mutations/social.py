@@ -6,8 +6,44 @@ from strawberry.types import Info
 
 from django_auth_kit.ratelimit import check_rate_limit
 from django_auth_kit.schema.inputs import SocialLoginInput
-from django_auth_kit.schema.utils import get_request
 from django_auth_kit.schema.types import AuthResponse
+from django_auth_kit.schema.utils import get_request
+
+
+@strawberry.type
+class OAuthRedirectURL:
+    url: str
+    provider: str
+
+
+@strawberry.type(name="Query")
+class SocialQuery:
+    @strawberry.field
+    def social_login_url(
+        self,
+        info: Info,
+        provider: str,
+        next_url: str | None = None,
+    ) -> OAuthRedirectURL:
+        """
+        Return the URL to initiate OAuth login for a redirect-based provider.
+
+        The frontend should redirect the user to this URL. After the user
+        authenticates with the provider, they will be redirected back with
+        JWT tokens as query parameters.
+
+        Args:
+            provider: The allauth provider id (e.g. "microsoft").
+            next_url: Optional frontend URL to redirect to after login.
+        """
+        from django.urls import reverse
+
+        request = get_request(info)
+        path = reverse("django_auth_kit:oauth_login", args=[provider])
+        if next_url:
+            path = f"{path}?next={next_url}"
+        url = request.build_absolute_uri(path)
+        return OAuthRedirectURL(url=url, provider=provider)
 
 
 @strawberry.type(name="Mutation")
@@ -25,12 +61,13 @@ class SocialMutation:
         - Google, Apple, OpenID Connect: ``id_token``
         - Facebook: ``access_token``
 
+        For redirect-based providers (e.g. Microsoft), use the
+        ``socialLoginUrl`` query to get the redirect URL instead.
+
         All user creation, account linking, and email matching is handled
         by django-allauth's adapter infrastructure.
         """
-        allowed, retry_after = check_rate_limit(
-            get_request(info), "social_login"
-        )
+        allowed, retry_after = check_rate_limit(get_request(info), "social_login")
         if not allowed:
             return AuthResponse(
                 success=False,

@@ -50,3 +50,5 @@ def JWTAuthenticationMiddleware(get_response):
             return get_response(request)
 
     return middleware
+
+

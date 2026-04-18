@@ -10,3 +10,4 @@ class OtpPurpose(enum.Enum):
     REGISTER = "register"
     FORGOT_PASSWORD = "forgot_password"
     VERIFY_CONTACT = "verify_contact"
+    CHANGE_PASSWORD = "change_password"

@@ -5,6 +5,34 @@ from django.core.exceptions import ValidationError
 from django_auth_kit import settings as kit_settings
 
 
+def upsert_social_app(
+    provider: str,
+    client_id: str,
+    client_secret: str,
+    name: str | None = None,
+):
+    """
+    Create or update the allauth SocialApp for a provider and link it to the
+    current Site. Lets projects seed provider credentials from env vars
+    without importing allauth directly.
+
+    Returns (app, created).
+    """
+    from allauth.socialaccount.models import SocialApp
+    from django.contrib.sites.models import Site
+
+    app, created = SocialApp.objects.update_or_create(
+        provider=provider,
+        defaults={
+            "name": name or provider.capitalize(),
+            "client_id": client_id,
+            "secret": client_secret,
+        },
+    )
+    app.sites.add(Site.objects.get_current())
+    return app, created
+
+
 class SocialLoginService:
     """
     Bridges GraphQL social login mutations to django-allauth's provider
