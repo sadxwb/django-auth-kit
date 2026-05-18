@@ -3,6 +3,9 @@ from uuid import uuid7
 from django.conf import settings
 from django.db import models, transaction
 
+# uuid.uuid7 was added in Python 3.14; fall back to uuid4 for earlier versions.
+_uuid_default = getattr(_uuid, "uuid7", _uuid.uuid4)
+
 
 class UserEmail(models.Model):
     """Email addresses associated with a user."""
