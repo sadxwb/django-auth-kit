@@ -1,4 +1,4 @@
-import uuid as _uuid
+from uuid import uuid7
 
 from django.conf import settings
 from django.db import models, transaction
@@ -10,7 +10,7 @@ _uuid_default = getattr(_uuid, "uuid7", _uuid.uuid4)
 class UserEmail(models.Model):
     """Email addresses associated with a user."""
 
-    id = models.UUIDField(primary_key=True, default=_uuid_default, editable=False)
+    id = models.UUIDField(primary_key=True, default=uuid7, editable=False)
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -43,7 +43,7 @@ class UserEmail(models.Model):
 class UserMobile(models.Model):
     """Mobile numbers associated with a user."""
 
-    id = models.UUIDField(primary_key=True, default=_uuid_default, editable=False)
+    id = models.UUIDField(primary_key=True, default=uuid7, editable=False)
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
