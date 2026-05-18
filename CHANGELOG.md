@@ -1,6 +1,27 @@
 # CHANGELOG
 
 
+## v0.5.3 (2026-05-18)
+
+### Bug Fixes
+
+- Refactor UUID generation and enhance invitation email templates
+  ([#14](https://github.com/sadxwb/django-auth-kit/pull/14),
+  [`8db0cfa`](https://github.com/sadxwb/django-auth-kit/commit/8db0cfa3590180ee7c21385ddb0008180188db8c))
+
+* refactor: update UUID generation to use uuid4 for user identifiers and enhance invitation flow
+  with new email templates
+
+* refactor: update UUID generation to use uuid7 for user identifiers in UserEmail and UserMobile
+  models
+
+* add: create GitHub Actions workflow for enforcing conventional commit messages
+
+---------
+
+Co-authored-by: wenbinxiang <wenbin.xiang@meditsoltions.com.au>
+
+
 ## v0.5.2 (2026-04-18)
 
 ### Refactoring
